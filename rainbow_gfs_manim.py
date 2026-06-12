@@ -3,7 +3,7 @@ import numpy as np
 
 # Render-Beispiele:
 # manim -pql rainbow_gfs_manim.py AngleHook RefractionAndReflection SingleDropPhysics AngleSelectionGraph WhyArcNotSpot PrimarySecondaryRainbow FinalTakeaway
-# manim -pqh rainbow_gfs_manim.py AngleHook
+# manim -pqh rainbow_gfs_manim.py AngleHook RefractionAndReflection SingleDropPhysics AngleSelectionGraph WhyArcNotSpot PrimarySecondaryRainbow FinalTakeaway
 
 config.background_color = BLACK
 
@@ -22,11 +22,14 @@ PRIMARY = "#58C4DD"
 SECONDARY = "#83C167"
 ACCENT = "#FFD166"
 TEXT = "#F5F7FA"
-MUTED = GREY_B
-SOFT = GREY_C
+MUTED = "#B7C0CC"
+SOFT = "#7F8A99"
 WATER_FILL = "#123B63"
 WATER_EDGE = "#4EA8DE"
 SUN = "#FFD54F"
+PANEL_FILL = "#0C121A"
+GROUND = "#0A1118"
+DARK_BAND = "#212833"
 
 SELECTED_COLORS = [
     ("Blau", 450.0),
@@ -34,6 +37,10 @@ SELECTED_COLORS = [
     ("Rot", 650.0),
 ]
 
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Physik / Raytracing#
+# ──────────────────────────────────────────────────────────────────────────────
 
 def scene_point(point: np.ndarray) -> np.ndarray:
     return point + SCENE_SHIFT
@@ -153,7 +160,7 @@ def trace_ray_bundle(
     incident = normalize(entry - start)
     entry_normal = normalize(entry - CENTER)
 
-    incoming_segments = [(start, entry, 1.0, WHITE, 5.4)]
+    incoming_segments = [(start, entry, 1.0, WHITE, 5.2)]
     inside_segments = []
     reflection_segments = []
     exit_segments = []
@@ -180,7 +187,7 @@ def trace_ray_bundle(
 
     for _ in range(max_reflections + 3):
         hit = ray_circle_intersection(current_start + current_dir * 1e-3, current_dir, RADIUS)
-        opacity = max(0.42, 1.0 - reflections_done * 0.18)
+        opacity = max(0.40, 1.0 - reflections_done * 0.18)
         inside_segments.append((current_start, hit, opacity, color, 4.6))
 
         inward_normal = -normalize(hit - CENTER)
@@ -213,7 +220,7 @@ def trace_ray_bundle(
     }
 
 
-def compute_angle_curve(wavelength_nm: float, target_exit_reflections: int = 1, n_steps: int = 90):
+def compute_angle_curve(wavelength_nm: float, target_exit_reflections: int = 1, n_steps: int = 120):
     points = []
     for i in range(n_steps + 1):
         y = Y_MAX * i / n_steps
@@ -224,7 +231,7 @@ def compute_angle_curve(wavelength_nm: float, target_exit_reflections: int = 1, 
 
 
 def find_stationary_exit(wavelength_nm: float, target_exit_reflections: int = 1):
-    samples = compute_angle_curve(wavelength_nm, target_exit_reflections=target_exit_reflections, n_steps=120)
+    samples = compute_angle_curve(wavelength_nm, target_exit_reflections=target_exit_reflections, n_steps=140)
     samples = [sample for sample in samples if sample[0] > 0.05]
     if not samples:
         return 0.8, 0.0
@@ -232,6 +239,10 @@ def find_stationary_exit(wavelength_nm: float, target_exit_reflections: int = 1)
     idx = int(np.argmax(angles) if target_exit_reflections == 1 else np.argmin(angles))
     return samples[idx]
 
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Zeichen-Helfer
+# ──────────────────────────────────────────────────────────────────────────────
 
 def glow_line(start, end, color, base_width=5.0, opacity=1.0, z_index=5):
     start = scene_point(start)
@@ -263,7 +274,7 @@ def build_exit_rays_only(wavelength_nm: float, y_values, target_exit_reflections
             continue
         start = data["preferred"]["point"]
         end = start + normalize(data["preferred"]["dir"]) * OUT_LENGTH
-        group.add(glow_line(start, end, color, base_width=3.8, opacity=opacity, z_index=4))
+        group.add(glow_line(start, end, color, base_width=3.6, opacity=opacity, z_index=4))
     return group
 
 
@@ -290,13 +301,20 @@ def build_droplet():
     return droplet
 
 
-def rainbow_arc(radius=2.6, center=ORIGIN, reverse=False, stroke_width=12):
-    colors = [wavelength_to_rgb(650), wavelength_to_rgb(600), wavelength_to_rgb(570), wavelength_to_rgb(540), wavelength_to_rgb(490), wavelength_to_rgb(450)]
+def rainbow_arc(radius=2.6, center=ORIGIN, reverse=False, stroke_width=12, start_angle=20 * DEGREES, angle=140 * DEGREES):
+    colors = [
+        wavelength_to_rgb(650),
+        wavelength_to_rgb(600),
+        wavelength_to_rgb(570),
+        wavelength_to_rgb(540),
+        wavelength_to_rgb(490),
+        wavelength_to_rgb(450),
+    ]
     if reverse:
         colors = list(reversed(colors))
     arcs = VGroup()
     for i, color in enumerate(colors):
-        arc = Arc(radius=radius - i * 0.11, start_angle=PI, angle=PI, color=color, stroke_width=stroke_width)
+        arc = Arc(radius=radius - i * 0.11, start_angle=start_angle, angle=angle, color=color, stroke_width=stroke_width)
         arc.move_arc_center_to(center)
         arcs.add(arc)
     return arcs
@@ -314,39 +332,45 @@ def fit_text(text_obj, max_width):
     return text_obj
 
 
-def note_box(title, body, color=PRIMARY, width=4.5, height=1.9):
-    box = RoundedRectangle(corner_radius=0.18, width=width, height=height, color=color)
-    box.set_fill("#0D1620", opacity=0.95)
-    box.set_stroke(color, width=2, opacity=0.8)
-    head = Text(title, font=MONO, font_size=20, color=color, weight=BOLD)
-    body_text = Text(body, font=MONO, font_size=17, color=TEXT, line_spacing=0.92)
-    fit_text(body_text, width - 0.4)
-    content = VGroup(head, body_text).arrange(DOWN, aligned_edge=LEFT, buff=0.16)
-    content.move_to(box.get_center())
-    content.align_to(box, LEFT).shift(RIGHT * 0.22)
-    return VGroup(box, content)
+def bullet_panel(lines, width=5.2, font_size=20, bullet_color=ACCENT, text_color=TEXT):
+    rows = VGroup()
+    for line in lines:
+        bullet = Text("•", font=MONO, font_size=font_size + 4, color=bullet_color)
+        body = Text(line, font=MONO, font_size=font_size, color=text_color, line_spacing=0.95)
+        fit_text(body, width - 0.7)
+        row = VGroup(bullet, body).arrange(RIGHT, buff=0.16, aligned_edge=UP)
+        rows.add(row)
+    rows.arrange(DOWN, aligned_edge=LEFT, buff=0.24)
+
+    anchor = Rectangle(
+        width=max(width, rows.width + 0.2),
+        height=rows.height + 0.12,
+        stroke_width=0,
+    )
+    anchor.set_fill(BLACK, opacity=0.0)
+    rows.move_to(anchor.get_center())
+    rows.align_to(anchor, LEFT)
+    return VGroup(anchor, rows), rows
 
 
-def bullet_lines(lines, font_size=20, color=TEXT, buff=0.24):
-    items = [Text(f"• {line}", font=MONO, font_size=font_size, color=color) for line in lines]
-    return VGroup(*items).arrange(DOWN, aligned_edge=LEFT, buff=buff)
+def formula_card(tex_string, color=TEXT, font_size=36):
+    formula = MathTex(tex_string, font_size=font_size, color=color)
+    box = RoundedRectangle(
+        corner_radius=0.16,
+        width=formula.width + 0.55,
+        height=formula.height + 0.40,
+        color=color,
+    )
+    box.set_fill(PANEL_FILL, opacity=0.95)
+    box.set_stroke(color, width=2.0, opacity=0.75)
+    box.move_to(formula)
+    return VGroup(box, formula)
 
 
-def add_title(scene, title, subtitle=None, accent=PRIMARY):
-    head = Text(title, font=MONO, font_size=34, color=TEXT, weight=BOLD)
-    head.to_edge(UP, buff=0.42)
-    line = Line(LEFT * 6.2, RIGHT * 6.2, color=accent, stroke_width=2.2, stroke_opacity=0.42)
-    line.next_to(head, DOWN, buff=0.18)
-    scene.play(FadeIn(head, shift=UP * 0.15), run_time=0.7)
-    scene.play(Create(line), run_time=0.5)
-    sub = None
-    if subtitle:
-        sub = Text(subtitle, font=MONO, font_size=18, color=MUTED)
-        fit_text(sub, 10.8)
-        sub.next_to(line, DOWN, buff=0.18)
-        scene.play(FadeIn(sub, shift=UP * 0.1), run_time=0.5)
-    scene.wait(0.4)
-    return VGroup(*[obj for obj in (head, line, sub) if obj is not None])
+def fade_in_bullets(scene, rows, shift=RIGHT * 0.12, run_time=0.34, pause=0.18):
+    for row in rows:
+        scene.play(FadeIn(row, shift=shift), run_time=run_time)
+        scene.wait(pause)
 
 
 def clean_exit(scene):
@@ -355,141 +379,155 @@ def clean_exit(scene):
         scene.wait(0.2)
 
 
+def angle_label(tex, color, position, font_size=22):
+    label = MathTex(tex, color=color, font_size=font_size)
+    back = BackgroundRectangle(label, color=BLACK, fill_opacity=0.7, buff=0.08)
+    group = VGroup(back, label)
+    group.move_to(position)
+    return group
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Szenen
+# ──────────────────────────────────────────────────────────────────────────────
+
 class AngleHook(Scene):
     def construct(self):
-        add_title(
-            self,
-            "Nicht 'Sonne + Regen' – entscheidend ist der Winkel",
-            "Der primäre Regenbogen erscheint nur aus ganz bestimmten Richtungen.",
-            accent=ACCENT,
-        )
+        self.camera.background_color = BLACK
 
-        observer = build_eye(1.1).move_to(RIGHT * 4.8 + DOWN * 0.6)
-        observer_label = Text("Beobachter", font=MONO, font_size=18, color=MUTED).next_to(observer, DOWN, buff=0.18)
+        bullet_block, bullet_rows = bullet_panel([
+            "Helle Strahlen erreichen das Auge nur in einem engen Winkelbereich.",
+            "Blau liegt beim Primärbogen bei etwa 40°, Rot bei etwa 42°.",
+            "Nicht jeder Tropfen zählt — nur Tropfen auf diesen Sichtlinien.",
+        ], width=5.65, font_size=19, bullet_color=ACCENT, text_color=MUTED)
+        bullet_block.to_edge(LEFT, buff=0.5).shift(UP * 1.0)
 
-        sun = Circle(radius=0.36, color=SUN, stroke_width=0).set_fill(SUN, opacity=1).move_to(RIGHT * 5.6 + UP * 2.3)
+        observer = build_eye(1.05).move_to(RIGHT * 4.85 + DOWN * 1.50)
+        sun = Circle(radius=0.32, color=SUN, stroke_width=0).set_fill(SUN, opacity=1).move_to(RIGHT * 5.45 + UP * 2.55)
         sun_rays = VGroup(*[
-            Line(sun.get_center() + rotate_vector(RIGHT * 0.48, ang), sun.get_center() + rotate_vector(RIGHT * 0.78, ang), color=SUN, stroke_width=2.5)
+            Line(sun.get_center() + rotate_vector(RIGHT * 0.44, ang), sun.get_center() + rotate_vector(RIGHT * 0.72, ang), color=SUN, stroke_width=2.1)
             for ang in np.linspace(0, TAU, 10, endpoint=False)
         ])
-        sun_text = Text("Sonne im Rücken", font=MONO, font_size=18, color=SUN).next_to(sun, LEFT, buff=0.2)
 
-        axis = DashedLine(observer.get_center(), observer.get_center() + LEFT * 5.2, dash_length=0.12, color=SOFT, stroke_width=1.8)
-        axis_label = Text("Gegenpunkt der Sonne", font=MONO, font_size=18, color=SOFT).next_to(axis, DOWN, buff=0.18)
+        axis = DashedLine(observer.get_center(), observer.get_center() + LEFT * 5.5, dash_length=0.11, color=SOFT, stroke_width=1.8)
+        antisolar = Dot(observer.get_center() + LEFT * 4.75, radius=0.05, color=WHITE)
 
-        red_dir = rotate_vector(LEFT, 42 * DEGREES)
+        grey_dirs = [rotate_vector(LEFT, deg * DEGREES) for deg in [36, 38, 40, 42, 44, 46]]
+        candidate_rays = VGroup(*[
+            Line(observer.get_center(), observer.get_center() + d * 5.0, color=GREY_C, stroke_width=2.1, stroke_opacity=0.34)
+            for d in grey_dirs
+        ])
+
         blue_dir = rotate_vector(LEFT, 40 * DEGREES)
-        red_ray = Line(observer.get_center(), observer.get_center() + red_dir * 5.0, color=wavelength_to_rgb(650), stroke_width=5)
-        blue_ray = Line(observer.get_center(), observer.get_center() + blue_dir * 4.7, color=wavelength_to_rgb(450), stroke_width=5)
+        red_dir = rotate_vector(LEFT, 42 * DEGREES)
+        blue_ray = Line(observer.get_center(), observer.get_center() + blue_dir * 5.0, color=wavelength_to_rgb(450), stroke_width=5.0)
+        red_ray = Line(observer.get_center(), observer.get_center() + red_dir * 5.15, color=wavelength_to_rgb(650), stroke_width=5.0)
 
-        red_drops = VGroup(*[
-            Circle(radius=0.12, color=wavelength_to_rgb(650), stroke_width=1.5).set_fill(wavelength_to_rgb(650), opacity=0.15).move_to(observer.get_center() + red_dir * d)
-            for d in [2.2, 3.1, 4.0, 4.8]
-        ])
         blue_drops = VGroup(*[
-            Circle(radius=0.11, color=wavelength_to_rgb(450), stroke_width=1.5).set_fill(wavelength_to_rgb(450), opacity=0.15).move_to(observer.get_center() + blue_dir * d)
-            for d in [2.1, 2.9, 3.7, 4.5]
+            Circle(radius=0.10, color=wavelength_to_rgb(450), stroke_width=1.3).set_fill(wavelength_to_rgb(450), opacity=0.16).move_to(observer.get_center() + blue_dir * d)
+            for d in [2.0, 2.8, 3.6, 4.4]
+        ])
+        red_drops = VGroup(*[
+            Circle(radius=0.10, color=wavelength_to_rgb(650), stroke_width=1.3).set_fill(wavelength_to_rgb(650), opacity=0.16).move_to(observer.get_center() + red_dir * d)
+            for d in [2.2, 3.0, 3.8, 4.6]
         ])
 
-        left_helper = Line(observer.get_center(), observer.get_center() + LEFT * 1.1, stroke_opacity=0)
-        red_helper = Line(observer.get_center(), observer.get_center() + red_dir * 1.1, stroke_opacity=0)
+        left_helper = Line(observer.get_center(), observer.get_center() + LEFT * 1.2, stroke_opacity=0)
         blue_helper = Line(observer.get_center(), observer.get_center() + blue_dir * 1.0, stroke_opacity=0)
-        red_angle = Angle(left_helper, red_helper, radius=0.62, color=wavelength_to_rgb(650), stroke_width=3)
-        blue_angle = Angle(left_helper, blue_helper, radius=0.42, color=wavelength_to_rgb(450), stroke_width=3)
-        red_label = Text("≈ 42°", font=MONO, font_size=18, color=wavelength_to_rgb(650)).move_to(observer.get_center() + LEFT * 0.95 + UP * 0.7)
-        blue_label = Text("≈ 40°", font=MONO, font_size=18, color=wavelength_to_rgb(450)).move_to(observer.get_center() + LEFT * 0.92 + UP * 0.45)
+        red_helper = Line(observer.get_center(), observer.get_center() + red_dir * 1.0, stroke_opacity=0)
+        blue_angle = Angle(left_helper, blue_helper, radius=0.46, color=wavelength_to_rgb(450), stroke_width=3.0)
+        red_angle = Angle(left_helper, red_helper, radius=0.74, color=wavelength_to_rgb(650), stroke_width=3.0)
+        blue_label = angle_label(r"40^\circ", wavelength_to_rgb(450), observer.get_center() + LEFT * 0.84 + UP * 0.52)
+        red_label = angle_label(r"42^\circ", wavelength_to_rgb(650), observer.get_center() + LEFT * 0.90 + UP * 0.92)
 
-        bullets = bullet_lines([
-            "Sonne steht hinter dem Beobachter.",
-            "Rot kommt aus etwa 42°, Blau/Violett aus etwa 40°.",
-            "Ein Regenbogen ist deshalb eine Winkelerscheinung.",
-        ], font_size=19, color=MUTED)
-        bullets.to_edge(LEFT, buff=0.55).shift(DOWN * 1.55)
-
-        self.play(FadeIn(observer), FadeIn(observer_label), FadeIn(sun), FadeIn(sun_rays), FadeIn(sun_text), run_time=1.0)
-        self.play(Create(axis), FadeIn(axis_label), run_time=0.8)
-        self.wait(0.4)
-        self.play(Create(red_ray), Create(blue_ray), run_time=1.1)
-        self.play(FadeIn(red_drops, lag_ratio=0.1), FadeIn(blue_drops, lag_ratio=0.1), run_time=0.9)
-        self.play(Create(red_angle), Create(blue_angle), FadeIn(red_label), FadeIn(blue_label), run_time=0.8)
-        for bullet in bullets:
-            self.play(FadeIn(bullet, shift=RIGHT * 0.12), run_time=0.35)
-            self.wait(0.25)
-        self.wait(1.8)
+        self.play(FadeIn(sun), FadeIn(sun_rays), FadeIn(observer), run_time=0.8)
+        self.play(Create(axis), FadeIn(antisolar), run_time=0.7)
+        self.wait(0.2)
+        self.play(LaggedStart(*[Create(ray) for ray in candidate_rays], lag_ratio=0.12), run_time=1.1)
+        self.play(FadeIn(blue_ray), FadeIn(red_ray), candidate_rays.animate.set_opacity(0.12), run_time=0.9)
+        self.play(FadeIn(blue_drops, lag_ratio=0.08), FadeIn(red_drops, lag_ratio=0.08), run_time=0.8)
+        self.play(Create(blue_angle), Create(red_angle), FadeIn(blue_label), FadeIn(red_label), run_time=0.8)
+        fade_in_bullets(self, bullet_rows, shift=RIGHT * 0.12)
+        self.wait(1.7)
         clean_exit(self)
 
 
 class RefractionAndReflection(Scene):
     def construct(self):
-        add_title(
-            self,
-            "Was im Tropfen wirklich passiert",
-            "Brechung lenkt das Licht um, Reflexion hält es im Tropfen.",
-            accent=PRIMARY,
-        )
+        self.camera.background_color = BLACK
 
-        left_panel = RoundedRectangle(width=5.6, height=4.7, corner_radius=0.18, color=PRIMARY).set_fill("#0B1118", opacity=0.92).move_to(LEFT * 3.4 + DOWN * 0.35)
-        right_panel = RoundedRectangle(width=5.6, height=4.7, corner_radius=0.18, color=ACCENT).set_fill("#0B1118", opacity=0.92).move_to(RIGHT * 3.4 + DOWN * 0.35)
-        left_title = Text("Brechung", font=MONO, font_size=24, color=PRIMARY, weight=BOLD).next_to(left_panel, UP, buff=-0.45)
-        right_title = Text("Innere Reflexion", font=MONO, font_size=24, color=ACCENT, weight=BOLD).next_to(right_panel, UP, buff=-0.45)
+        bullet_block, bullet_rows = bullet_panel([
+            "Reflexion: Winkel zur Normalen bleibt gleich.",
+            "Brechung: im Wasser wird der Strahl zur Normalen hin gebogen.",
+            "Primärbogen: zwei Brechungen und eine innere Reflexion.",
+        ], width=5.25, font_size=19, bullet_color=PRIMARY, text_color=MUTED)
+        bullet_block.to_edge(LEFT, buff=0.6).shift(DOWN * 1.35)
 
-        interface_l = Line(LEFT * 5.35 + DOWN * 0.2, LEFT * 1.45 + DOWN * 0.2, color=GREY_B, stroke_width=2.5)
-        normal_l = DashedLine(LEFT * 3.4 + UP * 1.8, LEFT * 3.4 + DOWN * 2.0, color=GREY_C, dash_length=0.12)
-        air = Text("Luft", font=MONO, font_size=18, color=SOFT).move_to(LEFT * 5.0 + UP * 0.75)
-        water = Text("Wasser", font=MONO, font_size=18, color=PRIMARY).move_to(LEFT * 5.0 + DOWN * 1.0)
-        inc = Arrow(LEFT * 4.8 + UP * 1.55, LEFT * 3.42 + DOWN * 0.18, buff=0, color=YELLOW_B, stroke_width=3.4, max_tip_length_to_length_ratio=0.08)
-        refr = Arrow(LEFT * 3.38 + DOWN * 0.22, LEFT * 2.55 + DOWN * 1.75, buff=0, color=PRIMARY, stroke_width=3.4, max_tip_length_to_length_ratio=0.08)
-        left_formula = Text("n₂ > n₁  ⇒  θ₂ < θ₁", font=MONO, font_size=20, color=TEXT).move_to(LEFT * 3.4 + DOWN * 2.2)
+        top_region = Rectangle(width=6.8, height=2.45, stroke_width=0).set_fill("#10161F", opacity=0.92).move_to(RIGHT * 1.9 + UP * 1.5)
+        bottom_region = Rectangle(width=6.8, height=3.1, stroke_width=0).set_fill("#12304A", opacity=0.42).move_to(RIGHT * 1.9 + DOWN * 1.35)
+        interface = Line(LEFT * 0.8 + DOWN * 0.1, RIGHT * 4.6 + DOWN * 0.1, color=GREY_B, stroke_width=2.6)
 
-        interface_r = Line(RIGHT * 1.55 + DOWN * 0.4, RIGHT * 5.25 + DOWN * 0.4, color=GREY_B, stroke_width=2.5)
-        normal_r = DashedLine(RIGHT * 3.4 + UP * 1.6, RIGHT * 3.4 + DOWN * 2.0, color=GREY_C, dash_length=0.12)
-        inc_r = Arrow(RIGHT * 2.0 + DOWN * 1.7, RIGHT * 3.38 + DOWN * 0.42, buff=0, color=GREEN_B, stroke_width=3.4, max_tip_length_to_length_ratio=0.08)
-        refl_r = Arrow(RIGHT * 3.42 + DOWN * 0.42, RIGHT * 4.8 + DOWN * 1.7, buff=0, color=ACCENT, stroke_width=3.4, max_tip_length_to_length_ratio=0.08)
-        rule_text = Text("θein = θaus", font=MONO, font_size=20, color=TEXT).move_to(RIGHT * 3.4 + DOWN * 2.2)
-        wall_text = Text("an der Rückseite des Tropfens", font=MONO, font_size=17, color=MUTED).move_to(RIGHT * 3.4 + UP * 1.8)
+        hit = np.array([1.9, -0.1, 0.0])
+        normal = DashedLine(hit + DOWN * 2.5, hit + UP * 2.6, dash_length=0.12, color=SOFT, stroke_width=1.8)
 
-        bridge = note_box(
-            "Merke",
-            "Erst Brechung + dann eine oder mehrere innere Reflexionen erzeugen die austretenden Farbstrahlen.",
-            color=SECONDARY,
-            width=10.5,
-            height=1.55,
-        ).move_to(DOWN * 3.0)
+        inc_dir = np.array([np.cos(140 * DEGREES), np.sin(140 * DEGREES), 0.0])
+        refl_dir = np.array([np.cos(40 * DEGREES), np.sin(40 * DEGREES), 0.0])
+        refr_dir = np.array([np.cos(-55 * DEGREES), np.sin(-55 * DEGREES), 0.0])
 
-        self.play(FadeIn(left_panel), FadeIn(right_panel), FadeIn(left_title), FadeIn(right_title), run_time=0.8)
-        self.play(Create(interface_l), Create(interface_r), Create(normal_l), Create(normal_r), run_time=0.8)
-        self.play(FadeIn(air), FadeIn(water), FadeIn(wall_text), run_time=0.5)
-        self.play(GrowArrow(inc), run_time=0.7)
-        self.play(GrowArrow(refr), FadeIn(left_formula), run_time=0.8)
-        self.wait(0.5)
-        self.play(GrowArrow(inc_r), run_time=0.7)
-        self.play(GrowArrow(refl_r), FadeIn(rule_text), run_time=0.8)
-        self.wait(0.6)
-        self.play(FadeIn(bridge), run_time=0.8)
-        self.wait(2.0)
+        inc_start = hit + inc_dir * 2.8
+        refl_end = hit + refl_dir * 2.8
+        refr_end = hit + refr_dir * 2.6
+
+        incoming = Arrow(inc_start, hit, buff=0, color=YELLOW_B, stroke_width=3.6, max_tip_length_to_length_ratio=0.07)
+        reflected = Arrow(hit, refl_end, buff=0, color=ACCENT, stroke_width=3.6, max_tip_length_to_length_ratio=0.07)
+        refracted = Arrow(hit, refr_end, buff=0, color=PRIMARY, stroke_width=3.6, max_tip_length_to_length_ratio=0.07)
+
+        inc_arc = Arc(radius=0.55, start_angle=90 * DEGREES, angle=50 * DEGREES, color=YELLOW_B, stroke_width=2.8).move_arc_center_to(hit)
+        refl_arc = Arc(radius=0.74, start_angle=40 * DEGREES, angle=50 * DEGREES, color=ACCENT, stroke_width=2.8).move_arc_center_to(hit)
+        refr_arc = Arc(radius=0.58, start_angle=-90 * DEGREES, angle=35 * DEGREES, color=PRIMARY, stroke_width=2.8).move_arc_center_to(hit)
+
+        theta_i = MathTex(r"\theta_i", color=YELLOW_B, font_size=24).move_to(hit + UP * 0.88 + LEFT * 0.40)
+        theta_r = MathTex(r"\theta_r", color=ACCENT, font_size=24).move_to(hit + UP * 0.88 + RIGHT * 0.44)
+        theta_t = MathTex(r"\theta_t", color=PRIMARY, font_size=24).move_to(hit + DOWN * 0.88 + RIGHT * 0.44)
+
+        formula_reflection = formula_card(r"\theta_i = \theta_r", color=ACCENT, font_size=34)
+        formula_snell = formula_card(r"n_1\sin\theta_1 = n_2\sin\theta_2", color=PRIMARY, font_size=30)
+        formulas = VGroup(formula_reflection, formula_snell).arrange(DOWN, buff=0.24, aligned_edge=LEFT)
+        formulas.to_edge(RIGHT, buff=0.6).shift(DOWN * 1.35)
+
+        self.play(FadeIn(top_region), FadeIn(bottom_region), run_time=0.7)
+        self.play(Create(interface), Create(normal), run_time=0.7)
+        self.play(GrowArrow(incoming), run_time=0.7)
+        self.play(GrowArrow(reflected), Create(inc_arc), Create(refl_arc), FadeIn(theta_i), FadeIn(theta_r), run_time=0.9)
+        self.play(FadeIn(formula_reflection), run_time=0.6)
+        self.wait(0.4)
+        self.play(GrowArrow(refracted), Create(refr_arc), FadeIn(theta_t), run_time=0.8)
+        self.play(FadeIn(formula_snell), run_time=0.6)
+        self.play(FadeIn(bullet_block[0]), run_time=0.45)
+        fade_in_bullets(self, bullet_rows, shift=RIGHT * 0.12)
+        self.wait(1.8)
         clean_exit(self)
 
 
 class SingleDropPhysics(Scene):
     def construct(self):
-        add_title(
-            self,
-            "Ein Tropfen selektiert Auslenkungswinkel",
-            "Die Farben verlassen den Tropfen nicht gleich, sondern mit leicht verschiedenen Winkeln.",
-            accent=SECONDARY,
-        )
+        self.camera.background_color = BLACK
+
+        bullet_block, bullet_rows = bullet_panel([
+            "Beim Eintritt spaltet Dispersion das Licht im Tropfen nach Wellenlänge auf.",
+            "Ein Primärbogen entsteht nach zwei Brechungen und einer inneren Reflexion.",
+            "Wenn Einfallshöhe und Farbe variieren, wandert auch die Austrittsrichtung.",
+        ], width=5.5, font_size=19, bullet_color=SECONDARY, text_color=MUTED)
+        bullet_block.to_edge(RIGHT, buff=0.45).shift(UP * 0.75)
 
         droplet = build_droplet()
-        self.play(FadeIn(droplet), run_time=0.9)
-
-        green_y, _ = find_stationary_exit(540.0, 1)
-        incoming = trace_ray_bundle(540.0, green_y, target_exit_reflections=1)["incoming"][0]
-        white_beam = glow_line(incoming[0], incoming[1], WHITE, base_width=5.4, opacity=1.0, z_index=6)
-        white_label = Text("einfallendes Sonnenlicht", font=MONO, font_size=18, color=TEXT).move_to(scene_point(np.array([-5.1, green_y + 0.65, 0.0])))
-
         red_y, red_angle = find_stationary_exit(650.0, 1)
         green_y, green_angle = find_stationary_exit(540.0, 1)
         blue_y, blue_angle = find_stationary_exit(450.0, 1)
+
+        y_tracker = ValueTracker(blue_y - 0.18)
+        wl_tracker = ValueTracker(450.0)
+        animated_beam = always_redraw(lambda: build_beam_group(wl_tracker.get_value(), y_tracker.get_value(), target_exit_reflections=1))
 
         red_group = build_beam_group(650.0, red_y, target_exit_reflections=1)
         green_group = build_beam_group(540.0, green_y, target_exit_reflections=1)
@@ -499,52 +537,53 @@ class SingleDropPhysics(Scene):
         green_data = trace_ray_bundle(540.0, green_y, target_exit_reflections=1)["preferred"]
         blue_data = trace_ray_bundle(450.0, blue_y, target_exit_reflections=1)["preferred"]
 
-        red_tag = Text(f"Rot  ≈ {red_angle:.1f}°", font=MONO, font_size=18, color=wavelength_to_rgb(650)).move_to(scene_point(red_data["point"] + normalize(red_data["dir"]) * 2.45 + np.array([0.0, 0.55, 0.0])))
-        green_tag = Text(f"Grün ≈ {green_angle:.1f}°", font=MONO, font_size=18, color=wavelength_to_rgb(540)).move_to(scene_point(green_data["point"] + normalize(green_data["dir"]) * 2.4 + np.array([0.25, 0.0, 0.0])))
-        blue_tag = Text(f"Blau ≈ {blue_angle:.1f}°", font=MONO, font_size=18, color=wavelength_to_rgb(450)).move_to(scene_point(blue_data["point"] + normalize(blue_data["dir"]) * 2.1 + np.array([0.1, -0.45, 0.0])))
+        red_label = angle_label(rf"{red_angle:.1f}^\circ", wavelength_to_rgb(650), scene_point(red_data["point"] + normalize(red_data["dir"]) * 2.45 + np.array([0.08, 0.52, 0.0])), font_size=23)
+        green_label = angle_label(rf"{green_angle:.1f}^\circ", wavelength_to_rgb(540), scene_point(green_data["point"] + normalize(green_data["dir"]) * 2.15 + np.array([0.18, 0.05, 0.0])), font_size=23)
+        blue_label = angle_label(rf"{blue_angle:.1f}^\circ", wavelength_to_rgb(450), scene_point(blue_data["point"] + normalize(blue_data["dir"]) * 2.05 + np.array([0.02, -0.48, 0.0])), font_size=23)
 
-        fan_red = build_exit_rays_only(650.0, np.linspace(max(0.0, red_y - 0.16), min(Y_MAX, red_y + 0.16), 9), opacity=0.22)
-        fan_green = build_exit_rays_only(540.0, np.linspace(max(0.0, green_y - 0.16), min(Y_MAX, green_y + 0.16), 9), opacity=0.22)
-        fan_blue = build_exit_rays_only(450.0, np.linspace(max(0.0, blue_y - 0.16), min(Y_MAX, blue_y + 0.16), 9), opacity=0.22)
-
-        insight = note_box(
-            "Aha",
-            "Benachbarte Strahlen verlassen den Tropfen in fast derselben Richtung. Genau dort wird der Regenbogen hell.",
-            color=ACCENT,
-            width=4.9,
-            height=2.1,
-        ).to_edge(RIGHT, buff=0.45).shift(DOWN * 0.25)
-
-        self.play(FadeIn(white_beam), FadeIn(white_label), run_time=0.8)
-        self.wait(0.4)
-        self.play(FadeIn(red_group), FadeIn(green_group), FadeIn(blue_group), run_time=1.2)
-        self.play(FadeIn(red_tag), FadeIn(green_tag), FadeIn(blue_tag), run_time=0.8)
-        self.wait(0.6)
-        self.play(FadeIn(fan_red), FadeIn(fan_green), FadeIn(fan_blue), run_time=0.9)
-        self.play(FadeIn(insight), run_time=0.8)
-        self.wait(2.0)
+        self.play(FadeIn(droplet), run_time=0.8)
+        self.play(FadeIn(animated_beam), run_time=0.6)
+        self.wait(0.25)
+        self.play(
+            y_tracker.animate.set_value(red_y + 0.14),
+            wl_tracker.animate.set_value(650.0),
+            run_time=3.8,
+            rate_func=there_and_back,
+        )
+        self.play(
+            y_tracker.animate.set_value(green_y),
+            wl_tracker.animate.set_value(540.0),
+            run_time=1.3,
+        )
+        self.wait(0.2)
+        self.play(FadeOut(animated_beam), FadeIn(blue_group), FadeIn(green_group), FadeIn(red_group), run_time=1.0)
+        self.play(FadeIn(blue_label), FadeIn(green_label), FadeIn(red_label), run_time=0.6)
+        fade_in_bullets(self, bullet_rows, shift=LEFT * 0.12)
+        self.wait(1.8)
         clean_exit(self)
 
 
 class AngleSelectionGraph(Scene):
     def construct(self):
-        add_title(
-            self,
-            "Warum gerade 40° bis 42°?",
-            "Der Auslenkungswinkel besitzt ein Extremum – dort stauen sich die Strahlen.",
-            accent=PRIMARY,
-        )
+        self.camera.background_color = BLACK
 
-        all_samples = [(name, wl, compute_angle_curve(wl, target_exit_reflections=1, n_steps=120)) for name, wl in SELECTED_COLORS]
-        y_values = [angle for _, _, pts in all_samples for _, angle in pts]
-        y_min = np.floor(min(y_values) - 0.4)
-        y_max = np.ceil(max(y_values) + 0.4)
+        bullet_block, bullet_rows = bullet_panel([
+            "x-Achse: Einfallshöhe y; y-Achse: Auslenkungswinkel D.",
+            "Am Extremum gilt näherungsweise dD/dy ≈ 0.",
+            "Dort verlassen viele Nachbarstrahlen den Tropfen fast gleichgerichtet.",
+        ], width=5.35, font_size=18, bullet_color=PRIMARY, text_color=MUTED)
+        bullet_block.to_edge(RIGHT, buff=0.55).shift(UP * 0.9)
+
+        all_samples = [(name, wl, compute_angle_curve(wl, target_exit_reflections=1, n_steps=140)) for name, wl in SELECTED_COLORS]
+        angle_values = [angle for _, _, pts in all_samples for _, angle in pts]
+        y_min = np.floor(min(angle_values) - 0.35)
+        y_max = np.ceil(max(angle_values) + 0.35)
 
         axes = Axes(
             x_range=[0, Y_MAX, round(Y_MAX / 4, 2)],
             y_range=[y_min, y_max, 1],
-            x_length=8.8,
-            y_length=5.2,
+            x_length=7.4,
+            y_length=4.8,
             axis_config={
                 "color": GREY_B,
                 "stroke_opacity": 0.72,
@@ -552,197 +591,155 @@ class AngleSelectionGraph(Scene):
                 "include_numbers": False,
             },
             tips=False,
-        ).move_to(LEFT * 1.2 + DOWN * 0.3)
+        ).move_to(LEFT * 2.0 + DOWN * 0.2)
 
-        x_label = Text("Einfallshöhe y", font=MONO, font_size=22, color=MUTED).next_to(axes, DOWN, buff=0.36)
-        y_label = Text("Ablenkwinkel [°]", font=MONO, font_size=22, color=MUTED).rotate(PI / 2).next_to(axes, LEFT, buff=0.45)
-
-        x_ticks = VGroup(*[
-            Text(label, font=MONO, font_size=16, color=SOFT).next_to(axes.c2p(x, y_min), DOWN, buff=0.15)
-            for x, label in [(0.0, "0"), (round(Y_MAX / 2, 1), "R/2"), (round(Y_MAX, 1), "R")]
+        x_tick_marks = VGroup(*[
+            Line(axes.c2p(val, y_min) + UP * 0.08, axes.c2p(val, y_min) + DOWN * 0.08, color=SOFT, stroke_width=1.6)
+            for val in [0.0, round(Y_MAX / 2, 2), round(Y_MAX, 2)]
         ])
-        y_ticks = VGroup(*[
-            Text(f"{int(val)}°", font=MONO, font_size=16, color=SOFT).next_to(axes.c2p(0, val), LEFT, buff=0.14)
+        y_tick_marks = VGroup(*[
+            Line(axes.c2p(0, val) + LEFT * 0.08, axes.c2p(0, val) + RIGHT * 0.08, color=SOFT, stroke_width=1.6)
+            for val in [40, 41, 42]
+            if y_min <= val <= y_max
+        ])
+        x_tick_labels = VGroup(*[
+            MathTex(label, color=SOFT, font_size=20).next_to(axes.c2p(val, y_min), DOWN, buff=0.16)
+            for val, label in [(0.0, "0"), (round(Y_MAX / 2, 2), r"R/2"), (round(Y_MAX, 2), r"R")]
+        ])
+        y_tick_labels = VGroup(*[
+            MathTex(rf"{int(val)}^\circ", color=SOFT, font_size=20).next_to(axes.c2p(0, val), LEFT, buff=0.18)
             for val in [40, 41, 42]
             if y_min <= val <= y_max
         ])
 
-        self.play(FadeIn(axes), FadeIn(x_label), FadeIn(y_label), FadeIn(x_ticks), FadeIn(y_ticks), run_time=0.8)
-
         curves = VGroup()
-        labels = VGroup()
-        markers = VGroup()
+        stationary_items = VGroup()
+        label_offsets = {
+            "Rot": np.array([0.72, 0.34, 0.0]),
+            "Grün": np.array([0.72, -0.02, 0.0]),
+            "Blau": np.array([0.72, -0.38, 0.0]),
+        }
         for name, wl, pts in all_samples:
             color = wavelength_to_rgb(wl)
             curve_points = [axes.c2p(x, y) for x, y in pts]
             glow = VMobject(color=color)
             glow.set_points_as_corners(curve_points)
-            glow.set_stroke(color=color, width=12, opacity=0.12)
+            glow.set_stroke(color=color, width=12, opacity=0.10)
             curve = VMobject(color=color)
             curve.set_points_as_corners(curve_points)
             curve.set_stroke(color=color, width=4.8)
             curves.add(glow, curve)
 
-            station_y, station_angle = find_stationary_exit(wl, 1)
-            station_dot = Dot(axes.c2p(station_y, station_angle), radius=0.06, color=color)
-            station_label = Text(f"{name}: {station_angle:.1f}°", font=MONO, font_size=18, color=color).next_to(station_dot, RIGHT, buff=0.16)
-            markers.add(station_dot, station_label)
+            stat_y, stat_angle = find_stationary_exit(wl, 1)
+            dot = Dot(axes.c2p(stat_y, stat_angle), radius=0.055, color=color)
+            label = angle_label(rf"{stat_angle:.1f}^\circ", color, axes.c2p(stat_y, stat_angle) + label_offsets[name], font_size=22)
+            stationary_items.add(dot, label)
 
-            labels.add(Text(f"{name} {int(wl)} nm", font=MONO, font_size=18, color=color))
-
-        labels.arrange(DOWN, aligned_edge=LEFT, buff=0.22).to_edge(RIGHT, buff=0.45).shift(UP * 0.8)
-
+        self.play(FadeIn(axes), FadeIn(x_tick_marks), FadeIn(y_tick_marks), FadeIn(x_tick_labels), FadeIn(y_tick_labels), run_time=0.8)
         for i in range(0, len(curves), 2):
-            self.play(Create(curves[i + 1]), FadeIn(curves[i]), run_time=1.0)
-        self.play(FadeIn(labels), run_time=0.6)
-        self.wait(0.5)
-
-        for i in range(0, len(markers), 2):
-            self.play(FadeIn(markers[i]), FadeIn(markers[i + 1]), run_time=0.45)
-
-        insight = note_box(
-            "Stationärer Winkel",
-            "Am Extremum gilt näherungsweise: dD/dy = 0. Dadurch liefern viele benachbarte Strahlen fast denselben Beobachtungswinkel.",
-            color=ACCENT,
-            width=4.9,
-            height=2.2,
-        ).to_edge(RIGHT, buff=0.45).shift(DOWN * 1.6)
-        self.play(FadeIn(insight), run_time=0.8)
-        self.wait(2.3)
+            self.play(FadeIn(curves[i]), Create(curves[i + 1]), run_time=0.95)
+        self.wait(0.35)
+        for i in range(0, len(stationary_items), 2):
+            self.play(FadeIn(stationary_items[i]), FadeIn(stationary_items[i + 1]), run_time=0.45)
+        self.play(FadeIn(bullet_block[0]), run_time=0.45)
+        fade_in_bullets(self, bullet_rows, shift=LEFT * 0.12)
+        self.wait(1.9)
         clean_exit(self)
 
 
 class WhyArcNotSpot(Scene):
     def construct(self):
-        add_title(
-            self,
-            "Warum ein Bogen – und kein einzelner Punkt?",
-            "Der Regenbogen ist ein Kreis um den Gegenpunkt der Sonne.",
-            accent=ACCENT,
-        )
+        self.camera.background_color = BLACK
 
-        sky = Circle(radius=3.25, color=GREY_C, stroke_opacity=0.35).move_to(DOWN * 0.15)
-        horizon = Line(LEFT * 5.8 + DOWN * 1.2, RIGHT * 5.8 + DOWN * 1.2, color=GREY_B, stroke_width=2.2)
-        ground_fill = Rectangle(width=12.0, height=2.2, stroke_width=0).set_fill("#0A1118", opacity=1.0).move_to(DOWN * 2.25)
+        center = DOWN * 2.18
+        observer = build_eye(0.95).move_to(DOWN * 1.76)
+        sun = Circle(radius=0.24, color=SUN, stroke_width=0).set_fill(SUN, opacity=1).move_to(RIGHT * 4.85 + DOWN * 1.82)
+        axis = DashedLine(observer.get_center(), center, dash_length=0.10, color=SOFT, stroke_width=1.8)
+        antisolar = Dot(point=center, radius=0.055, color=WHITE)
 
-        observer = build_eye(0.9).move_to(DOWN * 1.8)
-        observer_label = Text("Beobachter", font=MONO, font_size=18, color=MUTED).next_to(observer, DOWN, buff=0.18)
-        sun = Circle(radius=0.24, color=SUN, stroke_width=0).set_fill(SUN, opacity=1).move_to(RIGHT * 4.5 + DOWN * 1.85)
-        sun_text = Text("Sonne", font=MONO, font_size=17, color=SUN).next_to(sun, UP, buff=0.1)
+        full_circle = Circle(radius=3.42, color=SOFT, stroke_width=2.0, stroke_opacity=0.24).move_to(center)
+        primary_ring = rainbow_arc(radius=3.42, center=center, reverse=False, stroke_width=8, start_angle=0, angle=TAU)
+        visible_arc = rainbow_arc(radius=3.42, center=center, reverse=False, stroke_width=9, start_angle=18 * DEGREES, angle=144 * DEGREES)
 
-        antisolar = Dot(point=DOWN * 2.25, radius=0.06, color=WHITE)
-        antisolar_label = Text("Gegenpunkt der Sonne", font=MONO, font_size=18, color=SOFT).next_to(antisolar, DOWN, buff=0.18)
+        spoke_angles = np.linspace(22 * DEGREES, 158 * DEGREES, 7)
+        spokes = VGroup(*[
+            DashedLine(center, center + rotate_vector(RIGHT * 3.42, ang), dash_length=0.09, color=GREY_C, stroke_width=1.3)
+            for ang in spoke_angles
+        ])
+        sight_lines = VGroup(*[
+            DashedLine(observer.get_center(), center + rotate_vector(RIGHT * 3.42, ang), dash_length=0.09, color=WHITE, stroke_width=1.0, stroke_opacity=0.32)
+            for ang in np.linspace(34 * DEGREES, 146 * DEGREES, 5)
+        ])
+        rain_drops = VGroup(*[
+            Circle(radius=0.08, color=WHITE, stroke_width=1.0).set_fill(WHITE, opacity=0.10).move_to(center + rotate_vector(RIGHT * 3.42, ang))
+            for ang in np.linspace(24 * DEGREES, 156 * DEGREES, 13)
+        ])
 
-        primary_red = Circle(radius=2.55, color=wavelength_to_rgb(650), stroke_width=6).move_to(antisolar.get_center())
-        primary_blue = Circle(radius=2.38, color=wavelength_to_rgb(450), stroke_width=6).move_to(antisolar.get_center())
-        visible_arc = Arc(radius=2.55, start_angle=20 * DEGREES, angle=140 * DEGREES, color=wavelength_to_rgb(650), stroke_width=10).move_arc_center_to(antisolar.get_center())
-        visible_arc_inner = Arc(radius=2.38, start_angle=20 * DEGREES, angle=140 * DEGREES, color=wavelength_to_rgb(450), stroke_width=10).move_arc_center_to(antisolar.get_center())
+        horizon = Line(LEFT * 5.9 + DOWN * 1.18, RIGHT * 5.9 + DOWN * 1.18, color=GREY_B, stroke_width=2.1)
+        ground_fill = Rectangle(width=12.2, height=2.2, stroke_width=0).set_fill(GROUND, opacity=1.0).move_to(DOWN * 2.26)
 
-        bullets = bullet_lines([
-            "Im Prinzip ist der Regenbogen ein ganzer Kreis.",
-            "Vom Boden aus verdeckt der Horizont die untere Hälfte.",
-            "Aus Flugzeug oder auf einem Berg kann mehr vom Kreis sichtbar werden.",
-        ], font_size=19, color=MUTED)
-        bullets.to_edge(RIGHT, buff=0.4).shift(DOWN * 0.45)
-
-        self.play(FadeIn(sky), FadeIn(ground_fill), Create(horizon), run_time=0.8)
-        self.play(FadeIn(observer), FadeIn(observer_label), FadeIn(sun), FadeIn(sun_text), run_time=0.7)
-        self.play(FadeIn(antisolar), FadeIn(antisolar_label), run_time=0.6)
-        self.play(Create(primary_red), Create(primary_blue), run_time=1.0)
-        self.wait(0.5)
-        self.play(Transform(primary_red, visible_arc), Transform(primary_blue, visible_arc_inner), run_time=1.0)
-        for bullet in bullets:
-            self.play(FadeIn(bullet, shift=LEFT * 0.12), run_time=0.35)
-            self.wait(0.25)
-        self.wait(2.0)
+        self.play(FadeIn(observer), FadeIn(sun), FadeIn(antisolar), run_time=0.7)
+        self.play(Create(axis), Create(full_circle), run_time=0.9)
+        self.play(Create(spokes), FadeIn(rain_drops, lag_ratio=0.06), run_time=1.0)
+        self.play(Create(sight_lines), FadeIn(primary_ring), run_time=0.9)
+        self.wait(0.3)
+        self.play(FadeIn(ground_fill), Create(horizon), Transform(primary_ring, visible_arc), run_time=0.9)
+        self.wait(1.9)
         clean_exit(self)
 
 
 class PrimarySecondaryRainbow(Scene):
     def construct(self):
-        add_title(
-            self,
-            "Primärer und sekundärer Regenbogen",
-            "Mehr innere Reflexionen bedeuten anderen Winkel, schwächere Intensität und vertauschte Farbfolge.",
-            accent=SECONDARY,
-        )
+        self.camera.background_color = BLACK
 
-        left_drop = build_droplet().scale(0.72).move_to(LEFT * 3.7 + DOWN * 0.2)
-        right_drop = build_droplet().scale(0.72).move_to(RIGHT * 1.4 + DOWN * 0.2)
+        center = DOWN * 2.18
+        observer = build_eye(0.95).move_to(DOWN * 1.76)
+        antisolar = Dot(point=center, radius=0.055, color=WHITE)
+        axis = DashedLine(observer.get_center(), center, dash_length=0.10, color=SOFT, stroke_width=1.8)
 
-        primary_y, primary_angle = find_stationary_exit(650.0, 1)
-        secondary_y, secondary_angle = find_stationary_exit(650.0, 2)
+        outer_radius = 3.82
+        inner_radius = 3.18
+        outer_guide = Circle(radius=outer_radius, color=SOFT, stroke_width=2.0, stroke_opacity=0.16).move_to(center)
+        inner_guide = Circle(radius=inner_radius, color=SOFT, stroke_width=2.0, stroke_opacity=0.16).move_to(center)
 
-        primary_red = build_beam_group(650.0, primary_y, target_exit_reflections=1).scale(0.72).move_to(left_drop.get_center() - SCENE_SHIFT * 0.28)
-        primary_blue = build_beam_group(450.0, find_stationary_exit(450.0, 1)[0], target_exit_reflections=1).scale(0.72).move_to(left_drop.get_center() - SCENE_SHIFT * 0.28)
-        secondary_red = build_beam_group(650.0, secondary_y, target_exit_reflections=2).scale(0.72).move_to(right_drop.get_center() - SCENE_SHIFT * 0.28)
-        secondary_blue = build_beam_group(450.0, find_stationary_exit(450.0, 2)[0], target_exit_reflections=2).scale(0.72).move_to(right_drop.get_center() - SCENE_SHIFT * 0.28)
+        primary_hint = Circle(radius=inner_radius, color=wavelength_to_rgb(610), stroke_width=3.0, stroke_opacity=0.24).move_to(center)
+        secondary_hint = Circle(radius=outer_radius, color=wavelength_to_rgb(470), stroke_width=3.0, stroke_opacity=0.18).move_to(center)
+        primary_visible = rainbow_arc(radius=inner_radius, center=center, reverse=False, stroke_width=9, start_angle=18 * DEGREES, angle=144 * DEGREES)
+        secondary_visible = rainbow_arc(radius=outer_radius, center=center, reverse=True, stroke_width=8, start_angle=18 * DEGREES, angle=144 * DEGREES)
 
-        primary_arc = rainbow_arc(radius=1.18, center=LEFT * 3.7 + UP * 2.0, reverse=False, stroke_width=10)
-        secondary_arc = rainbow_arc(radius=1.18, center=RIGHT * 1.4 + UP * 2.0, reverse=True, stroke_width=10)
+        alexander_band = Arc(radius=3.50, start_angle=18 * DEGREES, angle=144 * DEGREES, color=DARK_BAND, stroke_width=20)
+        alexander_band.move_arc_center_to(center)
+        alexander_band.set_opacity(0.55)
 
-        primary_box = note_box(
-            "Primär",
-            f"1 innere Reflexion\nheller\nRot außen\n≈ {primary_angle:.1f}°",
-            color=PRIMARY,
-            width=2.9,
-            height=2.45,
-        ).to_edge(LEFT, buff=0.35).shift(DOWN * 1.75)
+        primary_sight = DashedLine(observer.get_center(), center + rotate_vector(RIGHT * inner_radius, 90 * DEGREES), dash_length=0.09, color=wavelength_to_rgb(650), stroke_width=1.6)
+        secondary_sight = DashedLine(observer.get_center(), center + rotate_vector(RIGHT * outer_radius, 90 * DEGREES), dash_length=0.09, color=wavelength_to_rgb(450), stroke_width=1.6)
 
-        secondary_box = note_box(
-            "Sekundär",
-            f"2 innere Reflexionen\nschwächer\nRot innen\n≈ {secondary_angle:.1f}°",
-            color=ACCENT,
-            width=3.15,
-            height=2.45,
-        ).to_edge(RIGHT, buff=0.35).shift(DOWN * 1.75)
+        horizon = Line(LEFT * 5.9 + DOWN * 1.18, RIGHT * 5.9 + DOWN * 1.18, color=GREY_B, stroke_width=2.1)
+        ground_fill = Rectangle(width=12.2, height=2.2, stroke_width=0).set_fill(GROUND, opacity=1.0).move_to(DOWN * 2.26)
 
-        dark_band = RoundedRectangle(width=1.75, height=2.15, corner_radius=0.14, color=GREY_B)
-        dark_band.set_fill(BLACK, opacity=0.22)
-        dark_band.set_stroke(GREY_B, width=1.8, opacity=0.3)
-        dark_band.move_to(LEFT * 1.15 + UP * 1.95)
-        dark_text = Text("Alexander-\nBand", font=MONO, font_size=17, color=MUTED, line_spacing=1.0).move_to(dark_band.get_center())
-
-        self.play(FadeIn(left_drop), FadeIn(right_drop), run_time=0.8)
-        self.play(FadeIn(primary_arc), FadeIn(secondary_arc), run_time=0.8)
-        self.play(FadeIn(primary_red), FadeIn(primary_blue), run_time=0.9)
-        self.play(FadeIn(secondary_red), FadeIn(secondary_blue), run_time=0.9)
-        self.play(FadeIn(primary_box), FadeIn(secondary_box), FadeIn(dark_band), FadeIn(dark_text), run_time=0.8)
-        self.wait(2.3)
+        self.play(FadeIn(observer), FadeIn(antisolar), run_time=0.6)
+        self.play(Create(axis), FadeIn(inner_guide), FadeIn(outer_guide), run_time=0.8)
+        self.play(FadeIn(primary_hint), run_time=0.6)
+        self.play(FadeIn(secondary_hint), run_time=0.6)
+        self.play(Create(primary_sight), Create(secondary_sight), run_time=0.7)
+        self.play(FadeIn(alexander_band), FadeIn(ground_fill), Create(horizon), FadeIn(primary_visible), FadeIn(secondary_visible), run_time=1.0)
+        self.wait(2.0)
         clean_exit(self)
 
 
 class FinalTakeaway(Scene):
     def construct(self):
-        add_title(
-            self,
-            "Fazit auf Oberstufen-Niveau",
-            "Der Regenbogen ist eine Richtungs- und Intensitätsstruktur des Lichts.",
-            accent=PRIMARY,
-        )
+        self.camera.background_color = BLACK
 
-        cards = VGroup(
-            note_box("1. Brechung", "Beim Eintritt und Austritt werden die Farben verschieden stark abgelenkt.", color=PRIMARY, width=3.6, height=2.3),
-            note_box("2. Innere Reflexion", "Erst Reflexionen im Tropfen erzeugen die primären und sekundären Wege.", color=ACCENT, width=3.6, height=2.3),
-            note_box("3. Stationärer Winkel", "Am Extremum des Auslenkungswinkels sammelt sich die Helligkeit.", color=SECONDARY, width=3.6, height=2.3),
-        ).arrange(RIGHT, buff=0.32).move_to(UP * 0.55)
+        bullet_block, bullet_rows = bullet_panel([
+            "Zwei Brechungen und eine innere Reflexion erzeugen den Primärbogen.",
+            "Dispersion trennt die Farben in verschiedene Beobachtungswinkel.",
+            "Das Helligkeitsmaximum entsteht am stationären Winkel.",
+            "Der Regenbogen ist Licht aus einer Richtung, kein Objekt an einem Ort.",
+        ], width=8.8, font_size=24, bullet_color=ACCENT, text_color=TEXT)
+        bullet_block.move_to(ORIGIN)
 
-        final_line = Text(
-            "Ein Regenbogen ist kein Objekt an einem Ort –\nsondern Licht aus einer ganz bestimmten Richtung.",
-            font=MONO,
-            font_size=26,
-            color=TEXT,
-            weight=BOLD,
-            line_spacing=0.95,
-        ).move_to(DOWN * 2.15)
-        fit_text(final_line, 10.8)
-
-        self.play(FadeIn(cards[0], shift=UP * 0.15), run_time=0.7)
-        self.wait(0.4)
-        self.play(FadeIn(cards[1], shift=UP * 0.15), run_time=0.7)
-        self.wait(0.4)
-        self.play(FadeIn(cards[2], shift=UP * 0.15), run_time=0.7)
-        self.wait(0.6)
-        self.play(Write(final_line), run_time=1.0)
+        self.play(FadeIn(bullet_block[0]), run_time=0.5)
+        fade_in_bullets(self, bullet_rows, shift=UP * 0.10, run_time=0.42, pause=0.22)
         self.wait(2.0)
         clean_exit(self)
