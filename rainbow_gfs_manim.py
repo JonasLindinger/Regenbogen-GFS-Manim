@@ -39,7 +39,7 @@ SELECTED_COLORS = [
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Physik / Raytracing#
+# Physik / Raytracing
 # ──────────────────────────────────────────────────────────────────────────────
 
 def scene_point(point: np.ndarray) -> np.ndarray:
@@ -395,13 +395,6 @@ class AngleHook(Scene):
     def construct(self):
         self.camera.background_color = BLACK
 
-        bullet_block, bullet_rows = bullet_panel([
-            "Helle Strahlen erreichen das Auge nur in einem engen Winkelbereich.",
-            "Blau liegt beim Primärbogen bei etwa 40°, Rot bei etwa 42°.",
-            "Nicht jeder Tropfen zählt — nur Tropfen auf diesen Sichtlinien.",
-        ], width=5.65, font_size=19, bullet_color=ACCENT, text_color=MUTED)
-        bullet_block.to_edge(LEFT, buff=0.5).shift(UP * 1.0)
-
         observer = build_eye(1.05).move_to(RIGHT * 4.85 + DOWN * 1.50)
         sun = Circle(radius=0.32, color=SUN, stroke_width=0).set_fill(SUN, opacity=1).move_to(RIGHT * 5.45 + UP * 2.55)
         sun_rays = VGroup(*[
@@ -447,7 +440,6 @@ class AngleHook(Scene):
         self.play(FadeIn(blue_ray), FadeIn(red_ray), candidate_rays.animate.set_opacity(0.12), run_time=0.9)
         self.play(FadeIn(blue_drops, lag_ratio=0.08), FadeIn(red_drops, lag_ratio=0.08), run_time=0.8)
         self.play(Create(blue_angle), Create(red_angle), FadeIn(blue_label), FadeIn(red_label), run_time=0.8)
-        fade_in_bullets(self, bullet_rows, shift=RIGHT * 0.12)
         self.wait(1.7)
         clean_exit(self)
 
@@ -455,13 +447,6 @@ class AngleHook(Scene):
 class RefractionAndReflection(Scene):
     def construct(self):
         self.camera.background_color = BLACK
-
-        bullet_block, bullet_rows = bullet_panel([
-            "Reflexion: Winkel zur Normalen bleibt gleich.",
-            "Brechung: im Wasser wird der Strahl zur Normalen hin gebogen.",
-            "Primärbogen: zwei Brechungen und eine innere Reflexion.",
-        ], width=5.25, font_size=19, bullet_color=PRIMARY, text_color=MUTED)
-        bullet_block.to_edge(LEFT, buff=0.6).shift(DOWN * 1.35)
 
         top_region = Rectangle(width=6.8, height=2.45, stroke_width=0).set_fill("#10161F", opacity=0.92).move_to(RIGHT * 1.9 + UP * 1.5)
         bottom_region = Rectangle(width=6.8, height=3.1, stroke_width=0).set_fill("#12304A", opacity=0.42).move_to(RIGHT * 1.9 + DOWN * 1.35)
@@ -503,8 +488,6 @@ class RefractionAndReflection(Scene):
         self.wait(0.4)
         self.play(GrowArrow(refracted), Create(refr_arc), FadeIn(theta_t), run_time=0.8)
         self.play(FadeIn(formula_snell), run_time=0.6)
-        self.play(FadeIn(bullet_block[0]), run_time=0.45)
-        fade_in_bullets(self, bullet_rows, shift=RIGHT * 0.12)
         self.wait(1.8)
         clean_exit(self)
 
@@ -512,13 +495,6 @@ class RefractionAndReflection(Scene):
 class SingleDropPhysics(Scene):
     def construct(self):
         self.camera.background_color = BLACK
-
-        bullet_block, bullet_rows = bullet_panel([
-            "Beim Eintritt spaltet Dispersion das Licht im Tropfen nach Wellenlänge auf.",
-            "Ein Primärbogen entsteht nach zwei Brechungen und einer inneren Reflexion.",
-            "Wenn Einfallshöhe und Farbe variieren, wandert auch die Austrittsrichtung.",
-        ], width=5.5, font_size=19, bullet_color=SECONDARY, text_color=MUTED)
-        bullet_block.to_edge(RIGHT, buff=0.45).shift(UP * 0.75)
 
         droplet = build_droplet()
         red_y, red_angle = find_stationary_exit(650.0, 1)
@@ -558,7 +534,6 @@ class SingleDropPhysics(Scene):
         self.wait(0.2)
         self.play(FadeOut(animated_beam), FadeIn(blue_group), FadeIn(green_group), FadeIn(red_group), run_time=1.0)
         self.play(FadeIn(blue_label), FadeIn(green_label), FadeIn(red_label), run_time=0.6)
-        fade_in_bullets(self, bullet_rows, shift=LEFT * 0.12)
         self.wait(1.8)
         clean_exit(self)
 
@@ -566,13 +541,6 @@ class SingleDropPhysics(Scene):
 class AngleSelectionGraph(Scene):
     def construct(self):
         self.camera.background_color = BLACK
-
-        bullet_block, bullet_rows = bullet_panel([
-            "x-Achse: Einfallshöhe y; y-Achse: Auslenkungswinkel D.",
-            "Am Extremum gilt näherungsweise dD/dy ≈ 0.",
-            "Dort verlassen viele Nachbarstrahlen den Tropfen fast gleichgerichtet.",
-        ], width=5.35, font_size=18, bullet_color=PRIMARY, text_color=MUTED)
-        bullet_block.to_edge(RIGHT, buff=0.55).shift(UP * 0.9)
 
         all_samples = [(name, wl, compute_angle_curve(wl, target_exit_reflections=1, n_steps=140)) for name, wl in SELECTED_COLORS]
         angle_values = [angle for _, _, pts in all_samples for _, angle in pts]
@@ -641,8 +609,6 @@ class AngleSelectionGraph(Scene):
         self.wait(0.35)
         for i in range(0, len(stationary_items), 2):
             self.play(FadeIn(stationary_items[i]), FadeIn(stationary_items[i + 1]), run_time=0.45)
-        self.play(FadeIn(bullet_block[0]), run_time=0.45)
-        fade_in_bullets(self, bullet_rows, shift=LEFT * 0.12)
         self.wait(1.9)
         clean_exit(self)
 
@@ -651,39 +617,37 @@ class WhyArcNotSpot(Scene):
     def construct(self):
         self.camera.background_color = BLACK
 
-        center = DOWN * 2.18
-        observer = build_eye(0.95).move_to(DOWN * 1.76)
-        sun = Circle(radius=0.24, color=SUN, stroke_width=0).set_fill(SUN, opacity=1).move_to(RIGHT * 4.85 + DOWN * 1.82)
+        center = DOWN * 2.02
+        radius = 3.62
+        observer = build_eye(0.95).move_to(DOWN * 1.42)
+        sun = Circle(radius=0.24, color=SUN, stroke_width=0).set_fill(SUN, opacity=1).move_to(RIGHT * 4.85 + DOWN * 1.62)
         axis = DashedLine(observer.get_center(), center, dash_length=0.10, color=SOFT, stroke_width=1.8)
         antisolar = Dot(point=center, radius=0.055, color=WHITE)
 
-        full_circle = Circle(radius=3.42, color=SOFT, stroke_width=2.0, stroke_opacity=0.24).move_to(center)
-        primary_ring = rainbow_arc(radius=3.42, center=center, reverse=False, stroke_width=8, start_angle=0, angle=TAU)
-        visible_arc = rainbow_arc(radius=3.42, center=center, reverse=False, stroke_width=9, start_angle=18 * DEGREES, angle=144 * DEGREES)
+        guide_circle = Circle(radius=radius, color=SOFT, stroke_width=2.0, stroke_opacity=0.24).move_to(center)
+        visible_arc = rainbow_arc(radius=radius, center=center, reverse=False, stroke_width=9.5, start_angle=16 * DEGREES, angle=148 * DEGREES)
 
-        spoke_angles = np.linspace(22 * DEGREES, 158 * DEGREES, 7)
+        endpoint_angles = np.linspace(24 * DEGREES, 156 * DEGREES, 9)
         spokes = VGroup(*[
-            DashedLine(center, center + rotate_vector(RIGHT * 3.42, ang), dash_length=0.09, color=GREY_C, stroke_width=1.3)
-            for ang in spoke_angles
+            DashedLine(center, center + rotate_vector(RIGHT * radius, ang), dash_length=0.09, color=GREY_C, stroke_width=1.25, stroke_opacity=0.52)
+            for ang in endpoint_angles
         ])
         sight_lines = VGroup(*[
-            DashedLine(observer.get_center(), center + rotate_vector(RIGHT * 3.42, ang), dash_length=0.09, color=WHITE, stroke_width=1.0, stroke_opacity=0.32)
-            for ang in np.linspace(34 * DEGREES, 146 * DEGREES, 5)
+            DashedLine(observer.get_center(), center + rotate_vector(RIGHT * radius, ang), dash_length=0.09, color=WHITE, stroke_width=1.0, stroke_opacity=0.38)
+            for ang in endpoint_angles
         ])
         rain_drops = VGroup(*[
-            Circle(radius=0.08, color=WHITE, stroke_width=1.0).set_fill(WHITE, opacity=0.10).move_to(center + rotate_vector(RIGHT * 3.42, ang))
-            for ang in np.linspace(24 * DEGREES, 156 * DEGREES, 13)
+            Dot(center + rotate_vector(RIGHT * radius, ang), radius=0.045, color=WHITE)
+            for ang in endpoint_angles
         ])
-
-        horizon = Line(LEFT * 5.9 + DOWN * 1.18, RIGHT * 5.9 + DOWN * 1.18, color=GREY_B, stroke_width=2.1)
-        ground_fill = Rectangle(width=12.2, height=2.2, stroke_width=0).set_fill(GROUND, opacity=1.0).move_to(DOWN * 2.26)
+        horizon = Line(LEFT * 5.9 + DOWN * 2.76, RIGHT * 5.9 + DOWN * 2.76, color=GREY_B, stroke_width=2.0, stroke_opacity=0.75)
 
         self.play(FadeIn(observer), FadeIn(sun), FadeIn(antisolar), run_time=0.7)
-        self.play(Create(axis), Create(full_circle), run_time=0.9)
-        self.play(Create(spokes), FadeIn(rain_drops, lag_ratio=0.06), run_time=1.0)
-        self.play(Create(sight_lines), FadeIn(primary_ring), run_time=0.9)
-        self.wait(0.3)
-        self.play(FadeIn(ground_fill), Create(horizon), Transform(primary_ring, visible_arc), run_time=0.9)
+        self.play(Create(axis), Create(guide_circle), run_time=0.85)
+        self.play(Create(spokes), FadeIn(rain_drops, lag_ratio=0.05), run_time=0.95)
+        self.play(Create(sight_lines), run_time=0.95)
+        self.wait(0.35)
+        self.play(Create(horizon), FadeIn(visible_arc), run_time=0.9)
         self.wait(1.9)
         clean_exit(self)
 
@@ -692,37 +656,34 @@ class PrimarySecondaryRainbow(Scene):
     def construct(self):
         self.camera.background_color = BLACK
 
-        center = DOWN * 2.18
-        observer = build_eye(0.95).move_to(DOWN * 1.76)
+        center = DOWN * 2.02
+        observer = build_eye(0.95).move_to(DOWN * 1.42)
         antisolar = Dot(point=center, radius=0.055, color=WHITE)
         axis = DashedLine(observer.get_center(), center, dash_length=0.10, color=SOFT, stroke_width=1.8)
 
-        outer_radius = 3.82
+        outer_radius = 3.85
         inner_radius = 3.18
         outer_guide = Circle(radius=outer_radius, color=SOFT, stroke_width=2.0, stroke_opacity=0.16).move_to(center)
         inner_guide = Circle(radius=inner_radius, color=SOFT, stroke_width=2.0, stroke_opacity=0.16).move_to(center)
 
-        primary_hint = Circle(radius=inner_radius, color=wavelength_to_rgb(610), stroke_width=3.0, stroke_opacity=0.24).move_to(center)
+        primary_hint = Circle(radius=inner_radius, color=wavelength_to_rgb(620), stroke_width=3.0, stroke_opacity=0.20).move_to(center)
         secondary_hint = Circle(radius=outer_radius, color=wavelength_to_rgb(470), stroke_width=3.0, stroke_opacity=0.18).move_to(center)
-        primary_visible = rainbow_arc(radius=inner_radius, center=center, reverse=False, stroke_width=9, start_angle=18 * DEGREES, angle=144 * DEGREES)
-        secondary_visible = rainbow_arc(radius=outer_radius, center=center, reverse=True, stroke_width=8, start_angle=18 * DEGREES, angle=144 * DEGREES)
+        primary_visible = rainbow_arc(radius=inner_radius, center=center, reverse=False, stroke_width=9.5, start_angle=16 * DEGREES, angle=148 * DEGREES)
+        secondary_visible = rainbow_arc(radius=outer_radius, center=center, reverse=True, stroke_width=8.5, start_angle=16 * DEGREES, angle=148 * DEGREES)
 
-        alexander_band = Arc(radius=3.50, start_angle=18 * DEGREES, angle=144 * DEGREES, color=DARK_BAND, stroke_width=20)
+        alexander_band = Arc(radius=3.50, start_angle=16 * DEGREES, angle=148 * DEGREES, color=DARK_BAND, stroke_width=14)
         alexander_band.move_arc_center_to(center)
-        alexander_band.set_opacity(0.55)
+        alexander_band.set_opacity(0.42)
 
-        primary_sight = DashedLine(observer.get_center(), center + rotate_vector(RIGHT * inner_radius, 90 * DEGREES), dash_length=0.09, color=wavelength_to_rgb(650), stroke_width=1.6)
-        secondary_sight = DashedLine(observer.get_center(), center + rotate_vector(RIGHT * outer_radius, 90 * DEGREES), dash_length=0.09, color=wavelength_to_rgb(450), stroke_width=1.6)
-
-        horizon = Line(LEFT * 5.9 + DOWN * 1.18, RIGHT * 5.9 + DOWN * 1.18, color=GREY_B, stroke_width=2.1)
-        ground_fill = Rectangle(width=12.2, height=2.2, stroke_width=0).set_fill(GROUND, opacity=1.0).move_to(DOWN * 2.26)
+        primary_sight = DashedLine(observer.get_center(), center + rotate_vector(RIGHT * inner_radius, 90 * DEGREES), dash_length=0.09, color=wavelength_to_rgb(650), stroke_width=1.4, stroke_opacity=0.65)
+        secondary_sight = DashedLine(observer.get_center(), center + rotate_vector(RIGHT * outer_radius, 90 * DEGREES), dash_length=0.09, color=wavelength_to_rgb(450), stroke_width=1.4, stroke_opacity=0.65)
+        horizon = Line(LEFT * 5.9 + DOWN * 2.76, RIGHT * 5.9 + DOWN * 2.76, color=GREY_B, stroke_width=2.0, stroke_opacity=0.75)
 
         self.play(FadeIn(observer), FadeIn(antisolar), run_time=0.6)
         self.play(Create(axis), FadeIn(inner_guide), FadeIn(outer_guide), run_time=0.8)
-        self.play(FadeIn(primary_hint), run_time=0.6)
-        self.play(FadeIn(secondary_hint), run_time=0.6)
-        self.play(Create(primary_sight), Create(secondary_sight), run_time=0.7)
-        self.play(FadeIn(alexander_band), FadeIn(ground_fill), Create(horizon), FadeIn(primary_visible), FadeIn(secondary_visible), run_time=1.0)
+        self.play(FadeIn(primary_hint), FadeIn(secondary_hint), run_time=0.7)
+        self.play(Create(primary_sight), Create(secondary_sight), run_time=0.75)
+        self.play(Create(horizon), FadeIn(alexander_band), FadeIn(primary_visible), FadeIn(secondary_visible), run_time=1.0)
         self.wait(2.0)
         clean_exit(self)
 
@@ -731,15 +692,14 @@ class FinalTakeaway(Scene):
     def construct(self):
         self.camera.background_color = BLACK
 
-        bullet_block, bullet_rows = bullet_panel([
-            "Zwei Brechungen und eine innere Reflexion erzeugen den Primärbogen.",
-            "Dispersion trennt die Farben in verschiedene Beobachtungswinkel.",
-            "Das Helligkeitsmaximum entsteht am stationären Winkel.",
-            "Der Regenbogen ist Licht aus einer Richtung, kein Objekt an einem Ort.",
-        ], width=8.8, font_size=24, bullet_color=ACCENT, text_color=TEXT)
-        bullet_block.move_to(ORIGIN)
+        line1 = Text("2× Brechung", font=MONO, font_size=34, color=TEXT)
+        line2 = Text("1× innere Reflexion", font=MONO, font_size=34, color=TEXT)
+        line3 = MathTex(r"dD/dy \approx 0", font_size=38, color=PRIMARY)
+        line4 = Text("Regenbogen = Winkelphänomen", font=MONO, font_size=34, color=ACCENT)
+        stack = VGroup(line1, line2, line3, line4).arrange(DOWN, buff=0.34).move_to(ORIGIN)
 
-        self.play(FadeIn(bullet_block[0]), run_time=0.5)
-        fade_in_bullets(self, bullet_rows, shift=UP * 0.10, run_time=0.42, pause=0.22)
+        for item in stack:
+            self.play(FadeIn(item, shift=UP * 0.08), run_time=0.42)
+            self.wait(0.18)
         self.wait(2.0)
         clean_exit(self)
