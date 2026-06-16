@@ -1,0 +1,8 @@
+# This file is used internally by FFMPEG.
+file 'file:/mnt/home/jonas/Projects/manimations/Projects/Regenbogen-GFS/media/videos/refraction_dispersion_explainer/1080p60/partial_movie_files/LightRefraction/3544663784_2047723961_1590712838.mp4'
+file 'file:/mnt/home/jonas/Projects/manimations/Projects/Regenbogen-GFS/media/videos/refraction_dispersion_explainer/1080p60/partial_movie_files/LightRefraction/260329756_913852052_4082644726.mp4'
+file 'file:/mnt/home/jonas/Projects/manimations/Projects/Regenbogen-GFS/media/videos/refraction_dispersion_explainer/1080p60/partial_movie_files/LightRefraction/260329756_383221501_2130791008.mp4'
+file 'file:/mnt/home/jonas/Projects/manimations/Projects/Regenbogen-GFS/media/videos/refraction_dispersion_explainer/1080p60/partial_movie_files/LightRefraction/260329756_2574473371_4048151631.mp4'
+file 'file:/mnt/home/jonas/Projects/manimations/Projects/Regenbogen-GFS/media/videos/refraction_dispersion_explainer/1080p60/partial_movie_files/LightRefraction/260329756_2324527386_886481514.mp4'
+file 'file:/mnt/home/jonas/Projects/manimations/Projects/Regenbogen-GFS/media/videos/refraction_dispersion_explainer/1080p60/partial_movie_files/LightRefraction/260329756_2653630326_346477084.mp4'
+file 'file:/mnt/home/jonas/Projects/manimations/Projects/Regenbogen-GFS/media/videos/refraction_dispersion_explainer/1080p60/partial_movie_files/LightRefraction/260329756_2872842549_2325560289.mp4'
