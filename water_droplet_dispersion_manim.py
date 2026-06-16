@@ -7,18 +7,157 @@ import numpy as np
 config.background_color = BLACK
 
 MONO = "DejaVu Sans Mono"
+
+# --- Prism Constants & Helpers ---
+PRISM_AIR_COLOR = "#FFE066"
+PRISM_GLASS_COLOR = "#FFB347"
+PRISM_COLOR = "#7FDBFF"
+C_SPEED = 1.8
+GLASS_SPEED = 1.2  # about 0.67c
+DT_PRISM = 1 / 30
+
+def cross2(a, b):
+    return a[0] * b[1] - a[1] * b[0]
+
+def segment_intersection(p, p2, q, q2):
+    p = np.array(p[:2], dtype=float)
+    p2 = np.array(p2[:2], dtype=float)
+    q = np.array(q[:2], dtype=float)
+    q2 = np.array(q2[:2], dtype=float)
+    r = p2 - p
+    s = q2 - q
+    denom = cross2(r, s)
+    if abs(denom) < 1e-9:
+        return None
+    qp = q - p
+    t = cross2(qp, s) / denom
+    u = cross2(qp, r) / denom
+    if -1e-9 <= t <= 1 + 1e-9 and -1e-9 <= u <= 1 + 1e-9:
+        hit = p + t * r
+        return np.array([hit[0], hit[1], 0.0]), float(t)
+    return None
+
+def outward_normal(a, b, interior_point):
+    edge = np.array(b) - np.array(a)
+    candidate = normalize(np.array([edge[1], -edge[0], 0.0]))
+    midpoint = (np.array(a) + np.array(b)) / 2
+    if np.dot(candidate, np.array(interior_point) - midpoint) > 0:
+        candidate *= -1
+    return candidate
+
+def refract_prism(direction, normal, n1, n2):
+    d = normalize(direction)
+    n = normalize(normal)
+    cos_i = -np.dot(d, n)
+    if cos_i < 0:
+        n = -n
+        cos_i = -np.dot(d, n)
+    eta = n1 / n2
+    k = 1 - eta**2 * (1 - cos_i**2)
+    if k < 0:
+        return d
+    t = eta * d + (eta * cos_i - np.sqrt(k)) * n
+    return normalize(t)
+
+class PropagatingWavefront(VMobject):
+    def __init__(
+        self,
+        entry_a,
+        entry_b,
+        exit_a,
+        exit_b,
+        d_air,
+        d_glass,
+        d_out,
+        center,
+        extent=1.4,
+        samples=17,
+        stroke_width=4,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.entry_a = np.array(entry_a)
+        self.entry_b = np.array(entry_b)
+        self.exit_a = np.array(exit_a)
+        self.exit_b = np.array(exit_b)
+        self.d_air = normalize(d_air)
+        self.d_glass = normalize(d_glass)
+        self.d_out = normalize(d_out)
+        wave_normal = normalize(np.array([-self.d_air[1], self.d_air[0], 0.0]))
+        offsets = np.linspace(-extent / 2, extent / 2, samples)
+        self.points_data = [
+            {"pos": np.array(center) + off * wave_normal, "state": 0}
+            for off in offsets
+        ]
+        self.set_stroke(PRISM_AIR_COLOR, stroke_width)
+        self.rebuild_path()
+        self.add_updater(self.advance)
+
+    def rebuild_path(self):
+        ordered = sorted(self.points_data, key=lambda item: item["pos"][1])
+        self.set_points_as_corners([item["pos"] for item in ordered])
+
+    def velocity(self, state):
+        if state == 0:
+            return self.d_air * C_SPEED
+        if state == 1:
+            return self.d_glass * GLASS_SPEED
+        return self.d_out * C_SPEED
+
+    def advance_point(self, item, dt):
+        remaining = dt
+        while remaining > 1e-6:
+            state = item["state"]
+            vel = self.velocity(state)
+            proposed = item["pos"] + vel * remaining
+            hit = None
+            if state == 0:
+                hit = segment_intersection(item["pos"], proposed, self.entry_a, self.entry_b)
+                next_state = 1
+            elif state == 1:
+                hit = segment_intersection(item["pos"], proposed, self.exit_a, self.exit_b)
+                next_state = 2
+            else:
+                next_state = 2
+
+            if hit is None:
+                item["pos"] = proposed
+                break
+
+            point, t = hit
+            item["pos"] = point + 1e-4 * self.velocity(next_state)
+            item["state"] = next_state
+            remaining *= max(0.0, 1 - t)
+
+    def advance(self, mob, dt):
+        dt = min(dt, 1 / 15)
+        steps = max(1, int(np.ceil(dt / DT_PRISM)))
+        sub_dt = dt / steps
+        for _ in range(steps):
+            for item in self.points_data:
+                self.advance_point(item, sub_dt)
+        self.rebuild_path()
+        states = [item["state"] for item in self.points_data]
+        if max(states) == 0:
+            self.set_color(PRISM_AIR_COLOR)
+        elif min(states) == 1 and max(states) == 1:
+            self.set_color(PRISM_GLASS_COLOR)
+        elif min(states) == 2:
+            self.set_color(PRISM_AIR_COLOR)
+        else:
+            self.set_color(average_color(PRISM_AIR_COLOR, PRISM_GLASS_COLOR))
+
+# --- Droplet Constants ---
 WATER_A = 1.324
 WATER_B = 0.00312
 AIR_REFRACTIVE_INDEX = 1.0
 RADIUS = 2.2
 START_X = -7.2
 OUT_LENGTH = 6.4
-# 2 interne Bounces (Original hatte 4 — letzte 2 entfernt)
 MAX_INTERNAL_BOUNCES = 2
 CENTER = np.array([0.0, 0.0, 0.0])
 SCENE_SHIFT = LEFT * 2.9
 Y_MAX = RADIUS - 1e-3
-
 
 SELECTED_COLORS = [
     ("Blau", 450.0),
@@ -26,10 +165,8 @@ SELECTED_COLORS = [
     ("Rot", 650.0),
 ]
 
-
 def scene_point(point: np.ndarray) -> np.ndarray:
     return point + SCENE_SHIFT
-
 
 def wavelength_to_rgb(wavelength_nm: float) -> ManimColor:
     w = float(np.clip(wavelength_nm, 380, 780))
@@ -71,11 +208,9 @@ def wavelength_to_rgb(wavelength_nm: float) -> ManimColor:
     rgb = np.power(np.clip(rgb, 0, 1), gamma)
     return rgb_to_color(tuple(rgb))
 
-
 def water_refractive_index(wavelength_nm: float) -> float:
     lambda_um = wavelength_nm / 1000.0
     return WATER_A + (WATER_B / (lambda_um * lambda_um))
-
 
 def normalize(v: np.ndarray) -> np.ndarray:
     norm = np.linalg.norm(v)
@@ -83,10 +218,8 @@ def normalize(v: np.ndarray) -> np.ndarray:
         return v
     return v / norm
 
-
 def reflect(v: np.ndarray, normal: np.ndarray) -> np.ndarray:
     return normalize(v - 2 * np.dot(v, normal) * normal)
-
 
 def refract(incident: np.ndarray, normal: np.ndarray, n1: float, n2: float):
     incident = normalize(incident)
@@ -99,7 +232,6 @@ def refract(incident: np.ndarray, normal: np.ndarray, n1: float, n2: float):
     cos_t = np.sqrt(max(0.0, 1.0 - sin_t2))
     refracted = eta * incident + (eta * cos_i - cos_t) * normal
     return normalize(refracted)
-
 
 def ray_circle_intersection(start: np.ndarray, direction: np.ndarray, radius: float) -> np.ndarray:
     direction = normalize(direction)
@@ -122,13 +254,11 @@ def ray_circle_intersection(start: np.ndarray, direction: np.ndarray, radius: fl
     hit = p + d * t
     return np.array([hit[0], hit[1], 0.0])
 
-
 def angle_between(v1: np.ndarray, v2: np.ndarray) -> float:
     a = normalize(v1)
     b = normalize(v2)
     dot = float(np.clip(np.dot(a, b), -1.0, 1.0))
     return float(np.degrees(np.arccos(dot)))
-
 
 def trace_ray_bundle(wavelength_nm: float, y_offset: float):
     color = wavelength_to_rgb(wavelength_nm)
@@ -146,7 +276,6 @@ def trace_ray_bundle(wavelength_nm: float, y_offset: float):
     exit_segments = []
     primary = None
 
-    # Oberflächenreflexion am Eintritt (wie Original)
     surface_reflection = reflect(incident, entry_normal)
     reflection_segments.append((entry, entry + surface_reflection * 2.5, 0.18, WHITE, 2.2))
 
@@ -197,7 +326,6 @@ def trace_ray_bundle(wavelength_nm: float, y_offset: float):
         "primary": primary,
     }
 
-
 def glow_line(start, end, color, base_width=5.0, opacity=1.0, z_index=5):
     start = scene_point(start)
     end = scene_point(end)
@@ -209,7 +337,6 @@ def glow_line(start, end, color, base_width=5.0, opacity=1.0, z_index=5):
     layers.set_z_index(z_index)
     return layers
 
-
 def build_beam_group(wavelength_nm: float, y_offset: float):
     bundle = trace_ray_bundle(wavelength_nm, y_offset)
     group = VGroup()
@@ -220,7 +347,6 @@ def build_beam_group(wavelength_nm: float, y_offset: float):
             group.add(glow_line(start, end, color, base_width=width, opacity=opacity, z_index=z_index))
 
     return group
-
 
 def build_droplet():
     core = Circle(radius=RADIUS, color=BLUE_E).move_to(SCENE_SHIFT)
@@ -243,7 +369,6 @@ def build_droplet():
     droplet = VGroup(glow_2, glow_1, core, inner, highlight)
     droplet.set_z_index(2)
     return droplet
-
 
 def build_angle_marker(wavelength_nm: float, y_offset: float):
     data = trace_ray_bundle(wavelength_nm, y_offset)
@@ -277,9 +402,7 @@ def build_angle_marker(wavelength_nm: float, y_offset: float):
 
     return VGroup(anti_line, out_line).set_z_index(7)
 
-
 def compute_angle_curve(wavelength_nm: float, n_steps: int = 80):
-    """Berechnet (y_offset, winkel) Paare für eine Wellenlänge."""
     points = []
     for i in range(n_steps + 1):
         y = Y_MAX * i / n_steps
@@ -288,9 +411,7 @@ def compute_angle_curve(wavelength_nm: float, n_steps: int = 80):
             points.append((y, data["primary"]["angle_deg"]))
     return points
 
-
 def build_final_graph(color_name: str, wavelength_nm: float, accent_color: ManimColor):
-    """Baut einen sauberen, großen Graphen für die Abschlusspräsentation."""
     samples = compute_angle_curve(wavelength_nm)
     if not samples:
         return VGroup()
@@ -322,7 +443,6 @@ def build_final_graph(color_name: str, wavelength_nm: float, accent_color: Manim
         tips=False,
     )
 
-    # Achsenbeschriftungen
     x_label = Text("Einfallshöhe y [m]", font=MONO, font_size=24, color=GREY_A)
     x_label.next_to(axes, DOWN, buff=0.45)
 
@@ -338,18 +458,15 @@ def build_final_graph(color_name: str, wavelength_nm: float, accent_color: Manim
     )
     title.next_to(axes, UP, buff=0.45)
 
-    # Kurve zeichnen
     curve_points = [axes.c2p(x, y) for x, y in samples]
     curve = VMobject(color=accent_color)
     curve.set_points_as_corners(curve_points)
     curve.set_stroke(color=accent_color, width=5.5)
 
-    # Glow-Effekt auf der Kurve
     curve_glow = VMobject(color=accent_color)
     curve_glow.set_points_as_corners(curve_points)
     curve_glow.set_stroke(color=accent_color, width=14, opacity=0.12)
 
-    # Min/Max Marker
     i_max = int(np.argmax(y_vals))
     i_min = int(np.argmin(y_vals))
 
@@ -371,10 +488,59 @@ def build_final_graph(color_name: str, wavelength_nm: float, accent_color: Manim
                    peak_dot, peak_label, min_dot, min_label)
     return group
 
-
 class WaterDropletDispersion(Scene):
     def construct(self):
-        self.camera.background_color = BLACK
+        # ══════════════════════════════════════════════════════════════════
+        # SZENE 0: Prism Refraction (Wavefronts)
+        # ══════════════════════════════════════════════════════════════════
+        
+        # Gigantic equilateral prism (Side 40.0)
+        p1 = np.array([-10.0, -12.0, 0.0])
+        p2 = np.array([10.0, 22.64, 0.0])
+        p3 = np.array([30.0, -12.0, 0.0])
+        prism_center = (p1 + p2 + p3) / 3
+
+        entry_normal = outward_normal(p1, p2, prism_center)
+        exit_normal = outward_normal(p2, p3, prism_center)
+
+        d_air = np.array([1.0, 0.0, 0.0])
+        d_glass = refract_prism(d_air, entry_normal, 1.0, 1.5)
+        d_out = refract_prism(d_glass, exit_normal, 1.5, 1.0)
+
+        prism = Polygon(
+            p1, p2, p3,
+            fill_color=PRISM_COLOR,
+            fill_opacity=0.15,
+            stroke_color=PRISM_COLOR,
+            stroke_width=2
+        )
+
+        fronts = VGroup()
+        for i in range(20):
+            center = np.array([-7.5 - 0.45 * i, 0.8, 0.0])
+            front = PropagatingWavefront(
+                p1, p2, p2, p3,
+                d_air, d_glass, d_out,
+                center=center,
+                extent=1.92,
+                samples=32,
+                stroke_width=2,
+            )
+            fronts.add(front)
+
+        self.play(FadeIn(prism), run_time=1.5)
+        self.wait(0.5)
+
+        self.add(fronts)
+        self.add_subcaption("Wavefronts move at c in air until one side reaches the glass first.", duration=4)
+        self.wait(4.5)
+
+        self.add_subcaption("Inside the glass, that side moves more slowly, so the front rotates and the ray refracts.", duration=6)
+        self.wait(8.0)
+
+        self.play(FadeOut(Group(*self.mobjects)), run_time=1.2)
+        self.wait(0.5)
+
 
         # ══════════════════════════════════════════════════════════════════
         # SZENE A: Reflexionsgesetz mit Kräftezerlegung
@@ -384,13 +550,11 @@ class WaterDropletDispersion(Scene):
         refl_title.to_edge(UP, buff=0.45)
         self.play(FadeIn(refl_title), run_time=0.6)
 
-        # Grenzfläche horizontal in der Mitte
         r_hit = np.array([0.0, -0.4, 0.0])
         mirror = Line(LEFT * 5.8, RIGHT * 5.8, color=GREY_B, stroke_width=2.5)
         mirror.move_to(r_hit)
         mirror.set_opacity(0.75)
 
-        # Normale (gestrichelt, senkrecht nach oben)
         r_normal = DashedLine(r_hit + DOWN * 0.3, r_hit + UP * 3.0,
                               dash_length=0.13, color=GREY_C, stroke_width=1.6)
         r_normal_lbl = Text("Normale n̂", font=MONO, font_size=17, color=GREY_C)
@@ -400,11 +564,9 @@ class WaterDropletDispersion(Scene):
         self.play(Create(r_normal), FadeIn(r_normal_lbl), run_time=0.6)
         self.wait(0.2)
 
-        # Einfallsstrahl  d = (sin θ, -cos θ)  → von oben rechts
         ri_deg = 40.0
         ri_rad = np.radians(ri_deg)
-        # Einfallsrichtung: von oben-rechts nach unten-links zur Wand
-        d_inc = np.array([-np.sin(ri_rad), -np.cos(ri_rad), 0.0])  # zeigt auf r_hit
+        d_inc = np.array([-np.sin(ri_rad), -np.cos(ri_rad), 0.0])
         ri_start = r_hit - d_inc * 2.8
 
         ri_ray = Arrow(ri_start, r_hit, buff=0, color=YELLOW_B,
@@ -415,7 +577,6 @@ class WaterDropletDispersion(Scene):
         self.play(GrowArrow(ri_ray), FadeIn(ri_lbl), run_time=0.9)
         self.wait(0.2)
 
-        # Einfallswinkel θ_ein (zwischen Strahl und Normale, gemessen von oben)
         ri_arc = Arc(radius=0.75, start_angle=PI / 2, angle=-(PI / 2 - ri_rad),
                      color=YELLOW_B, stroke_width=2.4).move_arc_center_to(r_hit)
         ri_angle_lbl = MathTex(r"\theta_{\mathrm{ein}}", font_size=28, color=YELLOW_B)
@@ -423,15 +584,11 @@ class WaterDropletDispersion(Scene):
         self.play(Create(ri_arc), Write(ri_angle_lbl), run_time=0.7)
         self.wait(0.3)
 
-        # ── Kräftezerlegung ─────────────────────────────────────────────
-        # d_inc hat Normalkomponente (senkrecht zur Fläche) und
-        # Tangentialkomponente (parallel zur Fläche)
-        # Normale zeigt UP = (0,1,0)
         n_hat = np.array([0.0, 1.0, 0.0])
-        d_n = np.dot(d_inc, n_hat) * n_hat          # Normalkomponente  (zeigt nach unten)
-        d_t = d_inc - d_n                            # Tangentialkomponente (horizontal)
+        d_n = np.dot(d_inc, n_hat) * n_hat
+        d_t = d_inc - d_n
 
-        comp_origin = r_hit + UP * 0.05  # leicht über der Wand
+        comp_origin = r_hit + UP * 0.05
 
         arr_inc_full = Arrow(comp_origin, comp_origin + d_inc * 1.6,
                              buff=0, color=YELLOW_B, stroke_width=2.8,
@@ -459,7 +616,6 @@ class WaterDropletDispersion(Scene):
         self.play(GrowArrow(arr_normal_comp), FadeIn(lbl_n_comp), run_time=0.7)
         self.wait(0.4)
 
-        # Erklärung: Bei Reflexion wird nur die Normalkomponente umgekehrt
         rule_lbl = Text(
             "Bei Reflexion:\n"
             "  Normalkomp.   → umgekehrt  (−)\n"
@@ -470,8 +626,7 @@ class WaterDropletDispersion(Scene):
         self.play(FadeIn(rule_lbl), run_time=0.7)
         self.wait(0.5)
 
-        # Reflektierter Strahl:  d_refl = d_t − d_n  (Normalkomp. gespiegelt)
-        d_refl = d_t - d_n   # = d_inc - 2*(d_inc·n̂)*n̂
+        d_refl = d_t - d_n
         ro_end = r_hit + d_refl * 2.8
 
         ro_ray = Arrow(r_hit, ro_end, buff=0, color=ORANGE,
@@ -488,7 +643,6 @@ class WaterDropletDispersion(Scene):
         self.play(Create(ro_arc), Write(ro_angle_lbl), run_time=0.7)
         self.wait(0.3)
 
-        # Formel + Winkel-Blink
         refl_formula = MathTex(r"\theta_{\mathrm{ein}} = \theta_{\mathrm{aus}}",
                                font_size=46, color=WHITE)
         refl_formula.to_corner(UR, buff=0.55).shift(DOWN * 3.5)
@@ -519,7 +673,6 @@ class WaterDropletDispersion(Scene):
         snell_title.to_edge(UP, buff=0.45)
         self.play(FadeIn(snell_title), run_time=0.6)
 
-        # Grenzfläche
         s_hit = np.array([0.0, -0.2, 0.0])
         s_interface = Line(LEFT * 5.8, RIGHT * 5.8, color=GREY_B, stroke_width=2.5)
         s_interface.move_to(s_hit).set_opacity(0.75)
@@ -538,7 +691,6 @@ class WaterDropletDispersion(Scene):
         self.play(Create(s_normal), FadeIn(s_normal_lbl), run_time=0.6)
         self.wait(0.2)
 
-        # Einfallsstrahl (von oben-links)
         s_inc_deg = 40.0
         s_inc_rad = np.radians(s_inc_deg)
         s_d_inc = np.array([np.sin(s_inc_rad), -np.cos(s_inc_rad), 0.0])
@@ -558,7 +710,6 @@ class WaterDropletDispersion(Scene):
         self.play(Create(s1_arc), Write(s_theta1_lbl), run_time=0.6)
         self.wait(0.2)
 
-        # Gebrochener Strahl  (n2 > n1 → θ2 < θ1, stärker zur Normalen)
         n1, n2 = 1.0, 1.33
         sin_t2 = n1 * np.sin(s_inc_rad) / n2
         s_refr_rad = np.arcsin(sin_t2)
@@ -579,14 +730,12 @@ class WaterDropletDispersion(Scene):
         self.play(Create(s2_arc), Write(s_theta2_lbl), run_time=0.6)
         self.wait(0.3)
 
-        # Formel rechts
         snell_formula = MathTex(r"n_1 \sin\theta_1 = n_2 \sin\theta_2",
                                 font_size=46, color=WHITE)
         snell_formula.to_corner(UR, buff=0.6).shift(DOWN * 0.5)
         self.play(Write(snell_formula), run_time=1.1)
         self.wait(0.4)
 
-        # Kurze Erklärung + Beispielwert
         snell_note = Text(
             f"n₂ > n₁  →  θ₂ < θ₁\n"
             f"Beispiel: θ₁ = {s_inc_deg:.0f}°  →  θ₂ = {np.degrees(s_refr_rad):.1f}°",
@@ -610,7 +759,6 @@ class WaterDropletDispersion(Scene):
         droplet = build_droplet()
         self.add(droplet)
 
-        # Feste Wellenlänge: grünes Licht (540 nm) als Referenz
         DEMO_WAVELENGTH = 540.0
         wavelength = ValueTracker(DEMO_WAVELENGTH)
         y_offset = ValueTracker(0.95)
@@ -631,7 +779,6 @@ class WaterDropletDispersion(Scene):
         )
         self.add(angle_marker)
 
-        # --- Pro Farbe: Einfallshöhe sweepen, Winkel in Weiß ---
         for color_name, wavelength_nm in SELECTED_COLORS:
 
             angle_readout = always_redraw(
@@ -665,7 +812,6 @@ class WaterDropletDispersion(Scene):
 
             self.play(FadeOut(angle_readout), FadeOut(color_label), run_time=0.5)
 
-        # --- Ausblenden der Tropfen-Szene ---
         self.play(
             FadeOut(beam),
             FadeOut(wavelength_caption),
@@ -675,7 +821,6 @@ class WaterDropletDispersion(Scene):
         )
         self.wait(0.3)
 
-        # --- Graphen einzeln, groß, clean ---
         for color_name, wavelength_nm in SELECTED_COLORS:
             accent = wavelength_to_rgb(wavelength_nm)
             graph = build_final_graph(color_name, wavelength_nm, accent)
@@ -686,16 +831,13 @@ class WaterDropletDispersion(Scene):
             self.play(FadeOut(graph), run_time=0.8)
             self.wait(0.3)
 
-        # --- Alle drei Kurven im Vergleich ---
         all_samples = []
         for color_name, wavelength_nm in SELECTED_COLORS:
             all_samples.append((color_name, wavelength_nm, compute_angle_curve(wavelength_nm)))
 
-        # Gemeinsame y-Achse — grobe Ticks damit keine Überlappung
         all_y = [y for _, _, pts in all_samples for _, y in pts]
         y_min_global = np.floor(min(all_y) - 0.5)
         y_max_global = np.ceil(max(all_y) + 0.5)
-        # Nur ~4 Ticks über den gesamten Bereich
         y_tick_cmp = round((y_max_global - y_min_global) / 4)
         if y_tick_cmp < 1:
             y_tick_cmp = 1
