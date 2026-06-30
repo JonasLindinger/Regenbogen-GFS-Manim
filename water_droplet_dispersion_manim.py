@@ -1,5 +1,6 @@
 from manim import *
 import numpy as np
+import textwrap
 
 # Render-Beispiel:
 # manim -pqh water_droplet_dispersion_manim.py WaterDropletDispersion
@@ -436,9 +437,7 @@ def build_final_graph(color_name: str, wavelength_nm: float, accent_color: Manim
             "color": GREY_B,
             "stroke_opacity": 0.7,
             "stroke_width": 2.0,
-            "include_numbers": True,
-            "font_size": 22,
-            "decimal_number_config": {"num_decimal_places": 1},
+            "include_numbers": False,
         },
         tips=False,
     )
@@ -487,6 +486,366 @@ def build_final_graph(color_name: str, wavelength_nm: float, accent_color: Manim
     group = VGroup(axes, curve_glow, curve, title, x_label, y_label,
                    peak_dot, peak_label, min_dot, min_label)
     return group
+
+# --- Intro scenes: material response, phase shift, refraction ---
+INTRO_BG = "#0F1117"
+INTRO_PRIMARY = "#58C4DD"
+INTRO_SECONDARY = "#83C167"
+INTRO_ACCENT = "#FFDD57"
+INTRO_WARNING = "#FF6B6B"
+INTRO_STRUCT = "#94A3B8"
+INTRO_WHITEISH = "#E5E7EB"
+
+INTRO_TITLE_SIZE = 34
+INTRO_BODY_SIZE = 22
+INTRO_LABEL_SIZE = 20
+INTRO_SMALL_SIZE = 18
+
+
+def intro_wrap_text(s, width=40):
+    return "\n".join(textwrap.wrap(s, width=width))
+
+
+def intro_make_title(text):
+    t = Text(text, font=MONO, font_size=INTRO_TITLE_SIZE, color=INTRO_WHITEISH, weight=BOLD)
+    if t.width > 11.5:
+        t.set_width(11.5)
+    t.to_edge(UP, buff=0.45)
+    return t
+
+
+def intro_make_note(text, color=INTRO_WHITEISH, width=11.6):
+    txt = Text(intro_wrap_text(text, 46), font=MONO, font_size=INTRO_BODY_SIZE, color=color, line_spacing=0.9)
+    if txt.width > width:
+        txt.set_width(width)
+    box = RoundedRectangle(corner_radius=0.15, width=12.2, height=1.35,
+                           stroke_color=INTRO_STRUCT, stroke_opacity=0.35,
+                           fill_color="#141821", fill_opacity=0.92)
+    group = VGroup(box, txt)
+    txt.move_to(box.get_center())
+    group.to_edge(DOWN, buff=0.38)
+    return group
+
+
+def intro_section_label(text, color=INTRO_PRIMARY):
+    t = Text(text, font=MONO, font_size=INTRO_LABEL_SIZE, color=color, weight=BOLD)
+    if t.width > 4.2:
+        t.set_width(4.2)
+    return t
+
+
+class IntroBaseScene(Scene):
+    def setup(self):
+        self.camera.background_color = INTRO_BG
+
+    def change_note(self, old_note, text, color=INTRO_WHITEISH):
+        new_note = intro_make_note(text, color=color)
+        if old_note is None:
+            self.play(FadeIn(new_note, shift=UP * 0.15), run_time=0.7)
+        else:
+            self.play(ReplacementTransform(old_note, new_note), run_time=0.7)
+        self.wait(0.5)
+        return new_note
+
+    def clean_end(self):
+        if self.mobjects:
+            self.play(FadeOut(Group(*self.mobjects)), run_time=0.5)
+            self.wait(0.3)
+
+
+class Intro1_Leitfrage(IntroBaseScene):
+    def construct(self):
+        title = intro_make_title("Phasenverschiebung: Was passiert im Material?")
+        self.add(title)
+
+        left_box = RoundedRectangle(width=5.8, height=3.7, corner_radius=0.18,
+                                    stroke_color=INTRO_STRUCT, stroke_opacity=0.45)
+        right_box = left_box.copy()
+        left_box.shift(LEFT * 3.45 + UP * 0.15)
+        right_box.shift(RIGHT * 3.45 + UP * 0.15)
+        left_label = intro_section_label("Vakuum", INTRO_PRIMARY).next_to(left_box, UP, buff=0.16)
+        right_label = intro_section_label("Material", INTRO_SECONDARY).next_to(right_box, UP, buff=0.16)
+
+        ax_l = Axes(x_range=[0, 6.2, 1], y_range=[-1.5, 1.5, 1], x_length=4.8, y_length=2.1,
+                    axis_config={"color": INTRO_STRUCT, "stroke_opacity": 0.25, "include_tip": False})
+        ax_r = ax_l.copy()
+        ax_l.move_to(left_box)
+        ax_r.move_to(right_box)
+
+        phase = ValueTracker(0)
+        wave_l = always_redraw(lambda: ax_l.plot(lambda x: 0.75 * np.sin(2.0 * x - phase.get_value()), color=INTRO_PRIMARY, stroke_width=4))
+        wave_r = always_redraw(lambda: ax_r.plot(lambda x: 0.75 * np.sin(2.4 * x - 0.78 * phase.get_value() - 0.8), color=INTRO_ACCENT, stroke_width=4))
+
+        freq_text = Text("gleiche Lichtfrequenz", font=MONO, font_size=16, color=INTRO_WHITEISH)
+        freq_text.move_to(DOWN * 1.55)
+        caution = Text("Nicht: Stop-and-Go", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WARNING)
+        caution.next_to(freq_text, DOWN, buff=0.16)
+
+        note = None
+        note = self.change_note(note, "Frage: Warum ist die Welle im Material phasenverschoben und scheinbar langsamer?")
+        self.play(FadeIn(left_box), FadeIn(right_box), FadeIn(left_label), FadeIn(right_label), FadeIn(ax_l), FadeIn(ax_r), run_time=1.0)
+        self.wait(0.5)
+        self.play(Create(wave_l), Create(wave_r), FadeIn(freq_text), run_time=1.5)
+        self.wait(0.8)
+        self.play(phase.animate.set_value(4 * PI), run_time=4.0, rate_func=linear)
+        self.wait(0.8)
+        note = self.change_note(note, "Wichtig: Das Licht wird nicht wie ein Ball immer wieder angehalten. Die Ursache ist die Antwort der Ladungen im Material.")
+        self.play(FadeIn(caution), run_time=0.8)
+        self.wait(1.2)
+        self.clean_end()
+
+
+class Intro2_ElektronFolgtVerzoegert(IntroBaseScene):
+    def construct(self):
+        title = intro_make_title("1) Das Lichtfeld treibt ein gebundenes Elektron an")
+        self.add(title)
+        note = None
+        note = self.change_note(note, "Eine Lichtwelle besitzt ein elektrisches Feld. Dieses Feld übt auf geladene Teilchen eine Kraft aus.")
+
+        atom_center = UP * 0.25
+        orbit_line = Line(atom_center + LEFT * 2.2, atom_center + RIGHT * 2.2, color=INTRO_STRUCT, stroke_opacity=0.25)
+        nucleus = Dot(atom_center, radius=0.18, color=INTRO_WARNING)
+        nucleus_label = Text("Atomkern", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WHITEISH).next_to(nucleus, UP, buff=0.18)
+        guide = DashedLine(atom_center + LEFT * 2.0, atom_center + RIGHT * 2.0, color=INTRO_STRUCT, stroke_opacity=0.25)
+
+        t = ValueTracker(0)
+        response = lambda: 1.15 * np.sin(t.get_value() - 0.85)
+
+        field_arrow = always_redraw(lambda: Arrow(atom_center + LEFT * 4.8, atom_center + LEFT * 4.8 + RIGHT * (1.2 + 0.9 * np.sin(t.get_value())),
+                                                   buff=0, stroke_width=6, max_stroke_width_to_length_ratio=10,
+                                                   max_tip_length_to_length_ratio=0.2, color=INTRO_PRIMARY))
+        field_label = Text("E-Feld der Lichtwelle", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_PRIMARY)
+        field_label.next_to(atom_center + LEFT * 4.0 + UP * 1.3, DOWN, buff=0.1)
+
+        spring = always_redraw(lambda: ParametricFunction(
+            lambda u: np.array([
+                atom_center[0] + (-0.2 + (response() + 0.2) * u),
+                atom_center[1] + 0.18 * np.sin(10 * PI * u),
+                0,
+            ]),
+            t_range=[0, 1], color=INTRO_STRUCT, stroke_width=2.5, stroke_opacity=0.6,
+        ))
+        electron = always_redraw(lambda: Dot(atom_center + RIGHT * response(), radius=0.14, color=INTRO_SECONDARY))
+        electron_label = always_redraw(lambda: Text("Elektron", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_SECONDARY).next_to(electron, DOWN, buff=0.16))
+        rest_marker = Dot(atom_center + LEFT * 0.05, radius=0.05, color=INTRO_STRUCT)
+
+        top_hint = Text("Bindung + Trägheit => Nachhinken", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_ACCENT)
+        top_hint.move_to(UP * 2.4)
+
+        self.play(FadeIn(orbit_line), FadeIn(guide), FadeIn(nucleus), FadeIn(nucleus_label), FadeIn(rest_marker), run_time=1.0)
+        self.wait(0.5)
+        self.play(FadeIn(field_arrow), FadeIn(field_label), FadeIn(spring), FadeIn(electron), FadeIn(electron_label), run_time=1.0)
+        self.wait(0.8)
+        self.play(t.animate.set_value(3 * PI), run_time=4.0, rate_func=linear)
+        self.wait(0.8)
+        note = self.change_note(note, "Das Elektron folgt nicht exakt sofort. Es ist an das Atom gebunden und hat Trägheit. Deshalb hinkt seine Bewegung dem Feld etwas hinterher.")
+        self.play(FadeIn(top_hint), run_time=0.8)
+        self.play(t.animate.set_value(6 * PI), run_time=4.0, rate_func=linear)
+        self.wait(1.1)
+        self.clean_end()
+
+
+class Intro3_WannStrahltEineLadung(IntroBaseScene):
+    def construct(self):
+        title = intro_make_title("2) Wann sendet ein Teilchen elektromagnetische Wellen aus?")
+        self.add(title)
+        note = None
+        note = self.change_note(note, "Die kurze Antwort lautet: Wenn eine Ladung beschleunigt wird. Reine Ruhe oder gleichförmige Bewegung strahlen in diesem einfachen Sinn nicht ab.")
+
+        panels = VGroup(*[
+            RoundedRectangle(width=3.95, height=4.0, corner_radius=0.16, stroke_color=INTRO_STRUCT, stroke_opacity=0.45)
+            for _ in range(3)
+        ]).arrange(RIGHT, buff=0.35).shift(UP * 0.45)
+        labels = VGroup(
+            Text("Ruhe", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WHITEISH),
+            Text("gleichförmig", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WHITEISH),
+            Text("beschleunigt", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WHITEISH),
+        )
+        for lbl, panel in zip(labels, panels):
+            lbl.next_to(panel, UP, buff=0.12)
+
+        self.play(FadeIn(panels), FadeIn(labels), run_time=1.0)
+        self.wait(0.5)
+
+        p1 = panels[0].get_center()
+        charge1 = Dot(p1, radius=0.12, color=INTRO_SECONDARY)
+        halo1 = Circle(radius=0.55, color=INTRO_PRIMARY, stroke_opacity=0.18).move_to(p1)
+        text1 = Text("keine neue\nabgestrahlte\nWelle", font=MONO, font_size=17, color=INTRO_WHITEISH, line_spacing=0.8)
+        text1.move_to(panels[0].get_bottom() + UP * 0.72)
+        self.play(FadeIn(charge1), FadeIn(halo1), FadeIn(text1), run_time=0.9)
+        self.wait(0.8)
+
+        p2 = panels[1].get_center()
+        charge2 = Dot(p2 + LEFT * 1.0, radius=0.12, color=INTRO_SECONDARY)
+        arrow2 = Arrow(p2 + LEFT * 1.35, p2 + RIGHT * 1.2, buff=0, color=INTRO_PRIMARY, stroke_width=5)
+        trail2 = VGroup(*[Circle(radius=r, color=INTRO_PRIMARY, stroke_opacity=0.08).move_to(p2 + RIGHT * (0.4 * r)) for r in [0.35, 0.7, 1.05]])
+        text2 = Text("bloße Bewegung\nist noch keine\nStrahlung", font=MONO, font_size=17, color=INTRO_WHITEISH, line_spacing=0.8)
+        text2.move_to(panels[1].get_bottom() + UP * 0.72)
+        self.play(FadeIn(charge2), GrowArrow(arrow2), FadeIn(trail2), FadeIn(text2), run_time=1.0)
+        self.wait(0.8)
+
+        p3 = panels[2].get_center()
+        osc = ValueTracker(0)
+        charge3 = always_redraw(lambda: Dot(p3 + RIGHT * (0.8 * np.sin(osc.get_value())), radius=0.12, color=INTRO_SECONDARY))
+        path3 = Line(p3 + LEFT * 1.1, p3 + RIGHT * 1.1, color=INTRO_STRUCT, stroke_opacity=0.25)
+        text3 = Text("Schwingen =\nständige\nBeschleunigung", font=MONO, font_size=17, color=INTRO_WHITEISH, line_spacing=0.8)
+        text3.move_to(panels[2].get_bottom() + UP * 0.72)
+        ripples = VGroup(*[Circle(radius=0.15, color=INTRO_ACCENT, stroke_opacity=0.55).move_to(p3) for _ in range(3)])
+        self.play(FadeIn(path3), FadeIn(charge3), FadeIn(text3), run_time=1.0)
+        self.wait(0.6)
+        self.play(osc.animate.set_value(4 * PI),
+                  *[r.animate.scale(8).set_stroke(opacity=0) for r in ripples],
+                  run_time=3.2, rate_func=linear)
+        self.wait(0.8)
+        note = self.change_note(note, "Warum? Eine schwingende Ladung wird fortwährend beschleunigt. Genau diese zeitlich veränderliche Bewegung erzeugt eine elektromagnetische Strahlung.")
+        accel_mark = Text("Beschleunigung => Abstrahlung", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_ACCENT)
+        accel_mark.move_to(UP * 2.35)
+        self.play(FadeIn(accel_mark), run_time=0.8)
+        self.wait(1.2)
+        self.clean_end()
+
+
+class Intro4_VieleAtomePhasenverschiebung(IntroBaseScene):
+    def construct(self):
+        title = intro_make_title("3) Viele Atome zusammen verschieben die Phase")
+        self.add(title)
+        note = None
+        note = self.change_note(note, "In einem Material schwingen nicht nur ein einziges, sondern sehr viele gebundene Elektronen. Ihre Antwort überlagert sich mit der einfallenden Welle.")
+
+        material_box = RoundedRectangle(width=9.6, height=3.1, corner_radius=0.15,
+                                        stroke_color=INTRO_STRUCT, stroke_opacity=0.45,
+                                        fill_color="#131A22", fill_opacity=0.35).shift(UP * 0.3)
+        material_label = Text("Material", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_SECONDARY).next_to(material_box, UP, buff=0.12)
+        atoms = VGroup()
+        for x in np.linspace(-4.0, 4.0, 7):
+            core = Dot(np.array([x, 0.1, 0]), radius=0.08, color=INTRO_WARNING)
+            electron = Dot(np.array([x + 0.22, 0.1, 0]), radius=0.05, color=INTRO_SECONDARY)
+            bond = Line(core.get_center(), electron.get_center(), color=INTRO_STRUCT, stroke_opacity=0.35)
+            atoms.add(VGroup(core, bond, electron))
+        atoms.shift(UP * 0.3)
+
+        ax_top = Axes(x_range=[0, 10, 1], y_range=[-1.4, 1.4, 1], x_length=10.0, y_length=1.4,
+                      axis_config={"color": INTRO_STRUCT, "stroke_opacity": 0.18, "include_tip": False})
+        ax_mid = ax_top.copy()
+        ax_bot = ax_top.copy()
+        ax_top.move_to(UP * 2.15)
+        ax_mid.move_to(UP * 0.0)
+        ax_bot.move_to(DOWN * 1.75)
+
+        incoming_label = Text("einfallende Welle", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_PRIMARY)
+        incoming_label.move_to(ax_top.get_left() + RIGHT * 1.55 + UP * 0.55)
+        response_label = Text("Materialantwort", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_SECONDARY)
+        response_label.move_to(ax_mid.get_left() + RIGHT * 1.6 + UP * 0.55)
+        result_label = Text("resultierende Welle", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_ACCENT)
+        result_label.move_to(ax_bot.get_left() + RIGHT * 1.75 + UP * 0.55)
+
+        phase = ValueTracker(0)
+        incoming = always_redraw(lambda: ax_top.plot(lambda x: 0.55 * np.sin(1.7 * x - phase.get_value()), color=INTRO_PRIMARY, stroke_width=4))
+        response = always_redraw(lambda: ax_mid.plot(lambda x: 0.38 * np.sin(1.7 * x - phase.get_value() - 0.95), color=INTRO_SECONDARY, stroke_width=4))
+        result = always_redraw(lambda: ax_bot.plot(lambda x: 0.55 * np.sin(1.7 * x - phase.get_value() - 0.42), color=INTRO_ACCENT, stroke_width=4))
+
+        self.play(FadeIn(material_box), FadeIn(material_label), FadeIn(atoms), run_time=1.0)
+        self.wait(0.5)
+        self.play(FadeIn(ax_top), FadeIn(ax_mid), FadeIn(ax_bot), FadeIn(incoming_label), FadeIn(response_label), FadeIn(result_label), run_time=1.0)
+        self.wait(0.4)
+        self.play(Create(incoming), Create(response), Create(result), run_time=1.4)
+        self.wait(0.8)
+        self.play(phase.animate.set_value(4 * PI), run_time=4.0, rate_func=linear)
+        self.wait(0.8)
+
+        shift_arrow = DoubleArrow(ax_bot.c2p(4.4, 0.95), ax_bot.c2p(5.0, 0.95), color=INTRO_ACCENT, stroke_width=4)
+        shift_text = Text("Phasenverschiebung", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_ACCENT).next_to(shift_arrow, UP, buff=0.12)
+        self.play(FadeIn(shift_arrow), FadeIn(shift_text), run_time=0.8)
+        self.wait(0.8)
+        note = self.change_note(note, "Das Entscheidende ist die Überlagerung: Die vom Material erzeugten Felder addieren sich zur ursprünglichen Welle. Dadurch entsteht eine neue Welle mit verschobener Phase.")
+        myth = Text("Nicht Anhalten, sondern Überlagerung", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WARNING)
+        myth.move_to(UP * 2.55 + RIGHT * 2.2)
+        self.play(FadeIn(myth), run_time=0.8)
+        self.play(phase.animate.set_value(7 * PI), run_time=3.0, rate_func=linear)
+        self.wait(1.1)
+        self.clean_end()
+
+
+class Intro5_VonPhaseZuBrechung(IntroBaseScene):
+    def construct(self):
+        title = intro_make_title("4) An der Grenzfläche wird daraus Brechung")
+        self.add(title)
+        note = None
+        note = self.change_note(note, "Trifft eine Wellenfront schräg auf Wasser, gelangt ihr unterer Teil zuerst in das Medium und wird dort zuerst langsamer.")
+
+        boundary = Line(LEFT * 6.3 + DOWN * 0.45, RIGHT * 6.3 + DOWN * 0.45, color=INTRO_WHITEISH, stroke_width=3)
+        air = Text("Luft", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_PRIMARY).move_to(LEFT * 5.4 + UP * 2.5)
+        water = Text("Wasser", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_SECONDARY).move_to(LEFT * 5.2 + DOWN * 2.5)
+        self.play(Create(boundary), FadeIn(air), FadeIn(water), run_time=1.0)
+        self.wait(0.4)
+
+        fronts_top = VGroup(*[
+            Line(LEFT * 1.8 + UP * (2.8 - 0.7 * i), RIGHT * 1.8 + UP * (1.7 - 0.7 * i), color=INTRO_PRIMARY, stroke_width=3)
+            for i in range(4)
+        ]).shift(LEFT * 1.8)
+        beam = Arrow(LEFT * 4.4 + UP * 2.3, LEFT * 1.9 + UP * 0.8, buff=0, color=INTRO_PRIMARY, stroke_width=5)
+        self.play(LaggedStart(*[Create(f) for f in fronts_top], lag_ratio=0.15), GrowArrow(beam), run_time=1.6)
+        self.wait(0.8)
+
+        note = self.change_note(note, "Weil ein Teil der Wellenfront früher im Wasser ist als der andere, dreht sich die ganze Front. Genau diese Drehung ändert die Ausbreitungsrichtung.")
+        fronts_bottom = VGroup(*[
+            Line(LEFT * 1.0 + DOWN * (0.4 + 0.6 * i), RIGHT * 1.5 + DOWN * (0.9 + 0.6 * i), color=INTRO_ACCENT, stroke_width=3)
+            for i in range(4)
+        ]).shift(RIGHT * 1.05)
+        beam2 = Arrow(LEFT * 1.2 + DOWN * 0.1, RIGHT * 1.0 + DOWN * 1.7, buff=0, color=INTRO_ACCENT, stroke_width=5)
+        normal = DashedLine(ORIGIN + UP * 2.2 + RIGHT * 0.2, ORIGIN + DOWN * 2.2 + RIGHT * 0.2, color=INTRO_STRUCT, stroke_opacity=0.4)
+        self.play(Create(normal), LaggedStart(*[Create(f) for f in fronts_bottom], lag_ratio=0.15), GrowArrow(beam2), run_time=1.8)
+        self.wait(0.8)
+
+        top_dot = Dot(LEFT * 1.8 + UP * 0.75, radius=0.08, color=INTRO_PRIMARY)
+        bot_dot = Dot(LEFT * 0.6 + DOWN * 0.8, radius=0.08, color=INTRO_ACCENT)
+        early = Text("tritt zuerst ein", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_ACCENT).next_to(bot_dot, RIGHT, buff=0.18)
+        self.play(FadeIn(top_dot), FadeIn(bot_dot), FadeIn(early), run_time=0.8)
+        self.wait(1.0)
+        self.clean_end()
+
+
+class Intro6_FarbenUndRegenbogen(IntroBaseScene):
+    def construct(self):
+        title = intro_make_title("5) Verschiedene Farben => verschiedene Brechung")
+        self.add(title)
+        note = None
+        note = self.change_note(note, "Die Materialantwort hängt von der Frequenz ab. Deshalb ist die Phasenverschiebung für Blau und Rot nicht genau gleich groß.")
+
+        source = Dot(LEFT * 5.4 + UP * 0.8, radius=0.12, color=INTRO_WHITEISH)
+        source_label = Text("weißes Licht", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WHITEISH).next_to(source, UP, buff=0.16)
+        drop = Circle(radius=1.0, color=INTRO_STRUCT, stroke_width=3, fill_color="#1A2533", fill_opacity=0.35).move_to(ORIGIN + RIGHT * 0.2)
+        drop_label = Text("Wassertropfen", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_SECONDARY).next_to(drop, UP, buff=0.16)
+        ray_in = Arrow(source.get_center(), drop.get_left() + UP * 0.1, buff=0, color=INTRO_WHITEISH, stroke_width=5)
+        ray_red = Arrow(drop.get_right() + DOWN * 0.05, RIGHT * 5.5 + DOWN * 0.45, buff=0, color="#FF6B6B", stroke_width=5)
+        ray_blue = Arrow(drop.get_right() + DOWN * 0.05, RIGHT * 5.0 + DOWN * 1.3, buff=0, color="#60A5FA", stroke_width=5)
+        red_label = Text("Rot: kleinere Verzögerung", font=MONO, font_size=INTRO_SMALL_SIZE, color="#FF6B6B")
+        blue_label = Text("Blau: stärkere Verzögerung", font=MONO, font_size=INTRO_SMALL_SIZE, color="#60A5FA")
+        red_label.move_to(RIGHT * 3.1 + UP * 1.8)
+        blue_label.move_to(RIGHT * 3.15 + UP * 1.2)
+
+        self.play(FadeIn(source), FadeIn(source_label), FadeIn(drop), FadeIn(drop_label), GrowArrow(ray_in), run_time=1.3)
+        self.wait(0.8)
+        self.play(GrowArrow(ray_red), GrowArrow(ray_blue), FadeIn(red_label), FadeIn(blue_label), run_time=1.6)
+        self.wait(0.8)
+        note = self.change_note(note, "Blaues Licht koppelt im Wasser etwas anders an die Elektronen als rotes Licht. Dadurch wird Blau stärker gebrochen. Im Regentropfen trennt das die Farben auf.")
+
+        summary = VGroup(
+            Text("Kurzform:", font=MONO, font_size=INTRO_LABEL_SIZE, color=INTRO_ACCENT, weight=BOLD),
+            Text("Lichtfeld treibt Elektronen an", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WHITEISH),
+            Text("Elektronen hinken leicht nach", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WHITEISH),
+            Text("beschleunigte Ladungen senden Felder aus", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WHITEISH),
+            Text("Überlagerung verschiebt die Phase", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WHITEISH),
+            Text("an der Grenzfläche entsteht Brechung", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WHITEISH),
+        ).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+        summary.scale(0.92)
+        summary.to_corner(UL, buff=0.65)
+        summary.shift(DOWN * 0.55)
+        bg = RoundedRectangle(width=5.15, height=2.5, corner_radius=0.16, stroke_color=INTRO_STRUCT, stroke_opacity=0.3,
+                              fill_color="#141821", fill_opacity=0.88).move_to(summary.get_center())
+        self.play(FadeIn(bg), LaggedStart(*[FadeIn(m, shift=RIGHT * 0.12) for m in summary], lag_ratio=0.12), run_time=1.6)
+        self.wait(2.0)
+        self.clean_end()
 
 class WaterDropletDispersion(Scene):
     def construct(self):
@@ -863,9 +1222,7 @@ class WaterDropletDispersion(Scene):
                 "color": GREY_B,
                 "stroke_opacity": 0.7,
                 "stroke_width": 2.0,
-                "include_numbers": True,
-                "font_size": 22,
-                "decimal_number_config": {"num_decimal_places": 0},
+                "include_numbers": False,
             },
             tips=False,
         )
@@ -910,3 +1267,566 @@ class WaterDropletDispersion(Scene):
 
         self.play(FadeOut(cmp_group), run_time=1.0)
         self.wait(0.3)
+
+
+class RainbowPresentation(IntroBaseScene):
+    def construct(self):
+        # ══════════════════════════════════════════════════════════════════
+        # TITEL / ORIENTIERUNG
+        # ══════════════════════════════════════════════════════════════════
+        title = Text("Der Regenbogen", font=MONO, font_size=44, color=WHITE)
+        subtitle = Text(
+            "Von der Phasenverschiebung im Material bis zur Farbtrennung im Regentropfen",
+            font=MONO, font_size=20, color=GREY_A,
+        )
+        subtitle.next_to(title, DOWN, buff=0.28)
+        roadmap = VGroup(
+            Text("1. Was Brechung mikroskopisch verursacht", font=MONO, font_size=22, color=INTRO_PRIMARY),
+            Text("2. Wie Reflexion und Brechung geometrisch beschrieben werden", font=MONO, font_size=22, color=YELLOW_B),
+            Text("3. Wie im Wassertropfen der Regenbogen entsteht", font=MONO, font_size=22, color=BLUE_B),
+        ).arrange(DOWN, aligned_edge=LEFT, buff=0.25)
+        roadmap.next_to(subtitle, DOWN, buff=0.7)
+
+        self.play(FadeIn(title, shift=UP * 0.2), FadeIn(subtitle), run_time=1.0)
+        self.play(LaggedStart(*[FadeIn(m, shift=RIGHT * 0.12) for m in roadmap], lag_ratio=0.12), run_time=1.2)
+        self.wait(2.0)
+        self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
+        self.wait(0.2)
+
+        # ══════════════════════════════════════════════════════════════════
+        # MODELLE DES LICHTS
+        # ══════════════════════════════════════════════════════════════════
+        intro_title = Text("Modelle des Lichts", font=MONO, font_size=42, color=WHITE)
+        intro_title.to_edge(UP, buff=1.0)
+
+        model_wave = Text("1. Wellenmodell (Wellenfronten)", font=MONO, font_size=28, color=PRISM_AIR_COLOR)
+        model_ray = Text("2. Teilchenmodell (Lichtstrahlen)", font=MONO, font_size=28, color=YELLOW_B)
+        models = VGroup(model_wave, model_ray).arrange(DOWN, aligned_edge=LEFT, buff=1.4)
+        models.next_to(intro_title, DOWN, buff=1.0)
+
+        expl_wave = Text(
+            "Erklärt die Ursache der Brechung\ndurch unterschiedliche Geschwindigkeiten.",
+            font=MONO, font_size=18, color=GREY_A, line_spacing=1.2,
+        )
+        expl_ray = Text(
+            "Ideal für die geometrische Verfolgung\nvon Pfaden und Winkeln im Tropfen.",
+            font=MONO, font_size=18, color=GREY_A, line_spacing=1.2,
+        )
+        expl_wave.next_to(model_wave, DOWN, aligned_edge=LEFT, buff=0.2).shift(RIGHT * 0.5)
+        expl_ray.next_to(model_ray, DOWN, aligned_edge=LEFT, buff=0.2).shift(RIGHT * 0.5)
+
+        self.play(Write(intro_title), run_time=0.9)
+        self.play(FadeIn(model_wave, shift=RIGHT), FadeIn(expl_wave, shift=RIGHT), run_time=0.9)
+        self.play(FadeIn(model_ray, shift=RIGHT), FadeIn(expl_ray, shift=RIGHT), run_time=0.9)
+        self.wait(2.0)
+        self.play(FadeOut(intro_title), FadeOut(models), FadeOut(expl_wave), FadeOut(expl_ray), run_time=0.7)
+        self.wait(0.2)
+
+        # ══════════════════════════════════════════════════════════════════
+        # INTRO 1
+        # ══════════════════════════════════════════════════════════════════
+        title = intro_make_title("Phasenverschiebung: Was passiert im Material?")
+        self.add(title)
+
+        left_box = RoundedRectangle(width=5.8, height=3.7, corner_radius=0.18,
+                                    stroke_color=INTRO_STRUCT, stroke_opacity=0.45)
+        right_box = left_box.copy()
+        left_box.shift(LEFT * 3.45 + UP * 0.15)
+        right_box.shift(RIGHT * 3.45 + UP * 0.15)
+        left_label = intro_section_label("Vakuum", INTRO_PRIMARY).next_to(left_box, UP, buff=0.16)
+        right_label = intro_section_label("Material", INTRO_SECONDARY).next_to(right_box, UP, buff=0.16)
+
+        ax_l = Axes(x_range=[0, 6.2, 1], y_range=[-1.5, 1.5, 1], x_length=4.8, y_length=2.1,
+                    axis_config={"color": INTRO_STRUCT, "stroke_opacity": 0.25, "include_tip": False})
+        ax_r = ax_l.copy()
+        ax_l.move_to(left_box)
+        ax_r.move_to(right_box)
+
+        phase = ValueTracker(0)
+        wave_l = always_redraw(lambda: ax_l.plot(lambda x: 0.75 * np.sin(2.0 * x - phase.get_value()), color=INTRO_PRIMARY, stroke_width=4))
+        wave_r = always_redraw(lambda: ax_r.plot(lambda x: 0.75 * np.sin(2.4 * x - 0.78 * phase.get_value() - 0.8), color=INTRO_ACCENT, stroke_width=4))
+
+        freq_text = Text("gleiche Lichtfrequenz", font=MONO, font_size=16, color=INTRO_WHITEISH)
+        freq_text.move_to(DOWN * 1.55)
+        caution = Text("Nicht: Stop-and-Go", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WARNING)
+        caution.next_to(freq_text, DOWN, buff=0.16)
+
+        note = None
+        note = self.change_note(note, "Frage: Warum ist die Welle im Material phasenverschoben und scheinbar langsamer?")
+        self.play(FadeIn(left_box), FadeIn(right_box), FadeIn(left_label), FadeIn(right_label), FadeIn(ax_l), FadeIn(ax_r), run_time=1.0)
+        self.play(Create(wave_l), Create(wave_r), FadeIn(freq_text), run_time=1.4)
+        self.play(phase.animate.set_value(4 * PI), run_time=3.6, rate_func=linear)
+        note = self.change_note(note, "Wichtig: Das Licht wird nicht wie ein Ball immer wieder angehalten. Die Ursache ist die Antwort der Ladungen im Material.")
+        self.play(FadeIn(caution), run_time=0.7)
+        self.wait(0.8)
+        self.clean_end()
+
+        # ══════════════════════════════════════════════════════════════════
+        # INTRO 2
+        # ══════════════════════════════════════════════════════════════════
+        title = intro_make_title("1) Das Lichtfeld treibt ein gebundenes Elektron an")
+        self.add(title)
+        note = None
+        note = self.change_note(note, "Eine Lichtwelle besitzt ein elektrisches Feld. Dieses Feld übt auf geladene Teilchen eine Kraft aus.")
+
+        atom_center = UP * 0.25
+        orbit_line = Line(atom_center + LEFT * 2.2, atom_center + RIGHT * 2.2, color=INTRO_STRUCT, stroke_opacity=0.25)
+        nucleus = Dot(atom_center, radius=0.18, color=INTRO_WARNING)
+        nucleus_label = Text("Atomkern", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WHITEISH).next_to(nucleus, UP, buff=0.18)
+        guide = DashedLine(atom_center + LEFT * 2.0, atom_center + RIGHT * 2.0, color=INTRO_STRUCT, stroke_opacity=0.25)
+
+        t = ValueTracker(0)
+        response = lambda: 1.15 * np.sin(t.get_value() - 0.85)
+
+        field_arrow = always_redraw(lambda: Arrow(atom_center + LEFT * 4.8, atom_center + LEFT * 4.8 + RIGHT * (1.2 + 0.9 * np.sin(t.get_value())),
+                                                   buff=0, stroke_width=6, max_stroke_width_to_length_ratio=10,
+                                                   max_tip_length_to_length_ratio=0.2, color=INTRO_PRIMARY))
+        field_label = Text("E-Feld der Lichtwelle", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_PRIMARY)
+        field_label.next_to(atom_center + LEFT * 4.0 + UP * 1.3, DOWN, buff=0.1)
+
+        spring = always_redraw(lambda: ParametricFunction(
+            lambda u: np.array([
+                atom_center[0] + (-0.2 + (response() + 0.2) * u),
+                atom_center[1] + 0.18 * np.sin(10 * PI * u),
+                0,
+            ]),
+            t_range=[0, 1], color=INTRO_STRUCT, stroke_width=2.5, stroke_opacity=0.6,
+        ))
+        electron = always_redraw(lambda: Dot(atom_center + RIGHT * response(), radius=0.14, color=INTRO_SECONDARY))
+        electron_label = always_redraw(lambda: Text("Elektron", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_SECONDARY).next_to(electron, DOWN, buff=0.16))
+        rest_marker = Dot(atom_center + LEFT * 0.05, radius=0.05, color=INTRO_STRUCT)
+        top_hint = Text("Bindung + Trägheit => Nachhinken", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_ACCENT)
+        top_hint.move_to(UP * 2.4)
+
+        self.play(FadeIn(orbit_line), FadeIn(guide), FadeIn(nucleus), FadeIn(nucleus_label), FadeIn(rest_marker), run_time=0.9)
+        self.play(FadeIn(field_arrow), FadeIn(field_label), FadeIn(spring), FadeIn(electron), FadeIn(electron_label), run_time=0.9)
+        self.play(t.animate.set_value(3 * PI), run_time=3.6, rate_func=linear)
+        note = self.change_note(note, "Das Elektron folgt nicht exakt sofort. Es ist an das Atom gebunden und hat Trägheit. Deshalb hinkt seine Bewegung dem Feld etwas hinterher.")
+        self.play(FadeIn(top_hint), run_time=0.7)
+        self.play(t.animate.set_value(6 * PI), run_time=3.2, rate_func=linear)
+        self.wait(0.8)
+        self.clean_end()
+
+        # ══════════════════════════════════════════════════════════════════
+        # INTRO 3
+        # ══════════════════════════════════════════════════════════════════
+        title = intro_make_title("2) Wann sendet ein Teilchen elektromagnetische Wellen aus?")
+        self.add(title)
+        note = None
+        note = self.change_note(note, "Die kurze Antwort lautet: Wenn eine Ladung beschleunigt wird. Reine Ruhe oder gleichförmige Bewegung strahlen nicht ab.")
+
+        panels = VGroup(*[
+            RoundedRectangle(width=3.95, height=4.0, corner_radius=0.16, stroke_color=INTRO_STRUCT, stroke_opacity=0.45)
+            for _ in range(3)
+        ]).arrange(RIGHT, buff=0.35).shift(UP * 0.45)
+        labels = VGroup(
+            Text("Ruhe", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WHITEISH),
+            Text("gleichförmig", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WHITEISH),
+            Text("beschleunigt", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WHITEISH),
+        )
+        for lbl, panel in zip(labels, panels):
+            lbl.next_to(panel, UP, buff=0.12)
+        self.play(FadeIn(panels), FadeIn(labels), run_time=0.9)
+
+        p1 = panels[0].get_center()
+        charge1 = Dot(p1, radius=0.12, color=INTRO_SECONDARY)
+        halo1 = Circle(radius=0.55, color=INTRO_PRIMARY, stroke_opacity=0.18).move_to(p1)
+        text1 = Text("keine neue\nabgestrahlte\nWelle", font=MONO, font_size=17, color=INTRO_WHITEISH, line_spacing=0.8)
+        text1.move_to(panels[0].get_bottom() + UP * 0.72)
+        self.play(FadeIn(charge1), FadeIn(halo1), FadeIn(text1), run_time=0.8)
+
+        p2 = panels[1].get_center()
+        charge2 = Dot(p2 + LEFT * 1.0, radius=0.12, color=INTRO_SECONDARY)
+        arrow2 = Arrow(p2 + LEFT * 1.35, p2 + RIGHT * 1.2, buff=0, color=INTRO_PRIMARY, stroke_width=5)
+        trail2 = VGroup(*[Circle(radius=r, color=INTRO_PRIMARY, stroke_opacity=0.08).move_to(p2 + RIGHT * (0.4 * r)) for r in [0.35, 0.7, 1.05]])
+        text2 = Text("bloße Bewegung\nist noch keine\nStrahlung", font=MONO, font_size=17, color=INTRO_WHITEISH, line_spacing=0.8)
+        text2.move_to(panels[1].get_bottom() + UP * 0.72)
+        self.play(FadeIn(charge2), GrowArrow(arrow2), FadeIn(trail2), FadeIn(text2), run_time=0.8)
+
+        p3 = panels[2].get_center()
+        osc = ValueTracker(0)
+        charge3 = always_redraw(lambda: Dot(p3 + RIGHT * (0.8 * np.sin(osc.get_value())), radius=0.12, color=INTRO_SECONDARY))
+        path3 = Line(p3 + LEFT * 1.1, p3 + RIGHT * 1.1, color=INTRO_STRUCT, stroke_opacity=0.25)
+        text3 = Text("Schwingen =\nständige\nBeschleunigung", font=MONO, font_size=17, color=INTRO_WHITEISH, line_spacing=0.8)
+        text3.move_to(panels[2].get_bottom() + UP * 0.72)
+        ripples = VGroup(*[Circle(radius=0.15, color=INTRO_ACCENT, stroke_opacity=0.55).move_to(p3) for _ in range(3)])
+        self.play(FadeIn(path3), FadeIn(charge3), FadeIn(text3), run_time=0.8)
+        self.play(osc.animate.set_value(4 * PI), *[r.animate.scale(8).set_stroke(opacity=0) for r in ripples], run_time=2.8, rate_func=linear)
+        note = self.change_note(note, "Eine schwingende Ladung wird fortwährend beschleunigt. Genau diese zeitlich veränderliche Bewegung erzeugt elektromagnetische Strahlung.")
+        accel_mark = Text("Beschleunigung => Abstrahlung", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_ACCENT)
+        accel_mark.move_to(UP * 2.35)
+        self.play(FadeIn(accel_mark), run_time=0.7)
+        self.wait(0.8)
+        self.clean_end()
+
+        # ══════════════════════════════════════════════════════════════════
+        # INTRO 4
+        # ══════════════════════════════════════════════════════════════════
+        title = intro_make_title("3) Viele Atome zusammen verschieben die Phase")
+        self.add(title)
+        note = None
+        note = self.change_note(note, "In einem Material schwingen sehr viele gebundene Elektronen. Ihre Antwort überlagert sich mit der einfallenden Welle.")
+
+        material_box = RoundedRectangle(width=9.6, height=3.1, corner_radius=0.15,
+                                        stroke_color=INTRO_STRUCT, stroke_opacity=0.45,
+                                        fill_color="#131A22", fill_opacity=0.35).shift(UP * 0.3)
+        material_label = Text("Material", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_SECONDARY).next_to(material_box, UP, buff=0.12)
+        atoms = VGroup()
+        for x in np.linspace(-4.0, 4.0, 7):
+            core = Dot(np.array([x, 0.1, 0]), radius=0.08, color=INTRO_WARNING)
+            electron = Dot(np.array([x + 0.22, 0.1, 0]), radius=0.05, color=INTRO_SECONDARY)
+            bond = Line(core.get_center(), electron.get_center(), color=INTRO_STRUCT, stroke_opacity=0.35)
+            atoms.add(VGroup(core, bond, electron))
+        atoms.shift(UP * 0.3)
+
+        ax_top = Axes(x_range=[0, 10, 1], y_range=[-1.4, 1.4, 1], x_length=10.0, y_length=1.4,
+                      axis_config={"color": INTRO_STRUCT, "stroke_opacity": 0.18, "include_tip": False})
+        ax_mid = ax_top.copy()
+        ax_bot = ax_top.copy()
+        ax_top.move_to(UP * 2.15)
+        ax_mid.move_to(UP * 0.0)
+        ax_bot.move_to(DOWN * 1.75)
+
+        incoming_label = Text("einfallende Welle", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_PRIMARY)
+        incoming_label.move_to(ax_top.get_left() + RIGHT * 1.55 + UP * 0.55)
+        response_label = Text("Materialantwort", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_SECONDARY)
+        response_label.move_to(ax_mid.get_left() + RIGHT * 1.6 + UP * 0.55)
+        result_label = Text("resultierende Welle", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_ACCENT)
+        result_label.move_to(ax_bot.get_left() + RIGHT * 1.75 + UP * 0.55)
+
+        phase = ValueTracker(0)
+        incoming = always_redraw(lambda: ax_top.plot(lambda x: 0.55 * np.sin(1.7 * x - phase.get_value()), color=INTRO_PRIMARY, stroke_width=4))
+        response = always_redraw(lambda: ax_mid.plot(lambda x: 0.38 * np.sin(1.7 * x - phase.get_value() - 0.95), color=INTRO_SECONDARY, stroke_width=4))
+        result = always_redraw(lambda: ax_bot.plot(lambda x: 0.55 * np.sin(1.7 * x - phase.get_value() - 0.42), color=INTRO_ACCENT, stroke_width=4))
+
+        self.play(FadeIn(material_box), FadeIn(material_label), FadeIn(atoms), run_time=0.9)
+        self.play(FadeIn(ax_top), FadeIn(ax_mid), FadeIn(ax_bot), FadeIn(incoming_label), FadeIn(response_label), FadeIn(result_label), run_time=0.9)
+        self.play(Create(incoming), Create(response), Create(result), run_time=1.2)
+        self.play(phase.animate.set_value(4 * PI), run_time=3.4, rate_func=linear)
+
+        shift_arrow = DoubleArrow(ax_bot.c2p(4.4, 0.95), ax_bot.c2p(5.0, 0.95), color=INTRO_ACCENT, stroke_width=4)
+        shift_text = Text("Phasenverschiebung", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_ACCENT).next_to(shift_arrow, UP, buff=0.12)
+        self.play(FadeIn(shift_arrow), FadeIn(shift_text), run_time=0.7)
+        note = self.change_note(note, "Die vom Material erzeugten Felder addieren sich zur ursprünglichen Welle. Dadurch entsteht eine neue Welle mit verschobener Phase.")
+        myth = Text("Nicht Anhalten, sondern Überlagerung", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WARNING)
+        myth.move_to(UP * 2.55 + RIGHT * 2.2)
+        self.play(FadeIn(myth), run_time=0.7)
+        self.play(phase.animate.set_value(7 * PI), run_time=2.8, rate_func=linear)
+        self.wait(0.8)
+        self.clean_end()
+
+        # ══════════════════════════════════════════════════════════════════
+        # INTRO 5
+        # ══════════════════════════════════════════════════════════════════
+        title = intro_make_title("4) An der Grenzfläche wird daraus Brechung")
+        self.add(title)
+        note = None
+        note = self.change_note(note, "Trifft eine Wellenfront schräg auf Wasser, gelangt ihr unterer Teil zuerst in das Medium und wird dort zuerst langsamer.")
+
+        boundary = Line(LEFT * 6.3 + DOWN * 0.45, RIGHT * 6.3 + DOWN * 0.45, color=INTRO_WHITEISH, stroke_width=3)
+        air = Text("Luft", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_PRIMARY).move_to(LEFT * 5.4 + UP * 2.5)
+        water = Text("Wasser", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_SECONDARY).move_to(LEFT * 5.2 + DOWN * 2.5)
+        self.play(Create(boundary), FadeIn(air), FadeIn(water), run_time=0.9)
+
+        fronts_top = VGroup(*[
+            Line(LEFT * 1.8 + UP * (2.8 - 0.7 * i), RIGHT * 1.8 + UP * (1.7 - 0.7 * i), color=INTRO_PRIMARY, stroke_width=3)
+            for i in range(4)
+        ]).shift(LEFT * 1.8)
+        beam = Arrow(LEFT * 4.4 + UP * 2.3, LEFT * 1.9 + UP * 0.8, buff=0, color=INTRO_PRIMARY, stroke_width=5)
+        self.play(LaggedStart(*[Create(f) for f in fronts_top], lag_ratio=0.15), GrowArrow(beam), run_time=1.4)
+
+        note = self.change_note(note, "Weil ein Teil der Wellenfront früher im Wasser ist als der andere, dreht sich die ganze Front. Genau diese Drehung ändert die Ausbreitungsrichtung.")
+        fronts_bottom = VGroup(*[
+            Line(LEFT * 1.0 + DOWN * (0.4 + 0.6 * i), RIGHT * 1.5 + DOWN * (0.9 + 0.6 * i), color=INTRO_ACCENT, stroke_width=3)
+            for i in range(4)
+        ]).shift(RIGHT * 1.05)
+        beam2 = Arrow(LEFT * 1.2 + DOWN * 0.1, RIGHT * 1.0 + DOWN * 1.7, buff=0, color=INTRO_ACCENT, stroke_width=5)
+        normal = DashedLine(ORIGIN + UP * 2.2 + RIGHT * 0.2, ORIGIN + DOWN * 2.2 + RIGHT * 0.2, color=INTRO_STRUCT, stroke_opacity=0.4)
+        self.play(Create(normal), LaggedStart(*[Create(f) for f in fronts_bottom], lag_ratio=0.15), GrowArrow(beam2), run_time=1.6)
+
+        top_dot = Dot(LEFT * 1.8 + UP * 0.75, radius=0.08, color=INTRO_PRIMARY)
+        bot_dot = Dot(LEFT * 0.6 + DOWN * 0.8, radius=0.08, color=INTRO_ACCENT)
+        early = Text("tritt zuerst ein", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_ACCENT).next_to(bot_dot, RIGHT, buff=0.18)
+        self.play(FadeIn(top_dot), FadeIn(bot_dot), FadeIn(early), run_time=0.7)
+        self.wait(0.8)
+        self.clean_end()
+
+        # ══════════════════════════════════════════════════════════════════
+        # PRISMA / WELLENFRONTEN
+        # ══════════════════════════════════════════════════════════════════
+        wave_title = intro_make_title("Wellenbild der Brechung am Prisma")
+        self.add(wave_title)
+        note = None
+        note = self.change_note(note, "Im Wellenmodell sieht man direkt, warum sich die Ausbreitungsrichtung ändert: Eine Seite der Wellenfront wird zuerst verzögert.")
+
+        p1 = np.array([-10.0, -12.0, 0.0])
+        p2 = np.array([10.0, 22.64, 0.0])
+        p3 = np.array([30.0, -12.0, 0.0])
+        prism_center = (p1 + p2 + p3) / 3
+        entry_normal = outward_normal(p1, p2, prism_center)
+        exit_normal = outward_normal(p2, p3, prism_center)
+        d_air = np.array([1.0, 0.0, 0.0])
+        d_glass = refract_prism(d_air, entry_normal, 1.0, 1.5)
+        d_out = refract_prism(d_glass, exit_normal, 1.5, 1.0)
+
+        prism = Polygon(p1, p2, p3, fill_color=PRISM_COLOR, fill_opacity=0.15, stroke_color=PRISM_COLOR, stroke_width=2)
+        fronts = VGroup()
+        for i in range(20):
+            center = np.array([-7.5 - 0.45 * i, 0.8, 0.0])
+            front = PropagatingWavefront(p1, p2, p2, p3, d_air, d_glass, d_out, center=center, extent=1.92, samples=32, stroke_width=2)
+            fronts.add(front)
+        self.play(FadeIn(prism), run_time=1.0)
+        self.add(fronts)
+        self.wait(6.5)
+        note = self.change_note(note, "Im dichteren Medium läuft die Wellenfront langsamer weiter. Dadurch kippt die Front und der Lichtstrahl wird gebrochen.")
+        self.wait(4.0)
+        self.clean_end()
+
+        # ══════════════════════════════════════════════════════════════════
+        # REFLEXION IM TROPFEN
+        # ══════════════════════════════════════════════════════════════════
+        refl_title = intro_make_title("Reflexion: Warum der Strahl im Tropfen umgelenkt wird")
+        self.add(refl_title)
+        note = None
+        note = self.change_note(note, "Im Regentropfen reicht eine Brechung allein nicht aus. Der Strahl wird zusätzlich an der Rückseite reflektiert.")
+
+        r_hit = np.array([0.0, -0.4, 0.0])
+        mirror = Line(LEFT * 5.8, RIGHT * 5.8, color=GREY_B, stroke_width=2.5).move_to(r_hit)
+        mirror.set_opacity(0.75)
+        r_normal = DashedLine(r_hit + DOWN * 0.3, r_hit + UP * 3.0, dash_length=0.13, color=GREY_C, stroke_width=1.6)
+        r_normal_lbl = Text("Normale", font=MONO, font_size=17, color=GREY_C).next_to(r_normal.get_top(), RIGHT, buff=0.12)
+        self.play(Create(mirror), Create(r_normal), FadeIn(r_normal_lbl), run_time=0.9)
+
+        ri_deg = 40.0
+        ri_rad = np.radians(ri_deg)
+        d_inc = np.array([-np.sin(ri_rad), -np.cos(ri_rad), 0.0])
+        ri_start = r_hit - d_inc * 2.8
+        ri_ray = Arrow(ri_start, r_hit, buff=0, color=YELLOW_B, stroke_width=3.5, max_tip_length_to_length_ratio=0.07)
+        self.play(GrowArrow(ri_ray), run_time=0.8)
+
+        ri_arc = Arc(radius=0.75, start_angle=PI / 2, angle=-(PI / 2 - ri_rad), color=YELLOW_B, stroke_width=2.4).move_arc_center_to(r_hit)
+        ri_angle_lbl = Text("theta_ein", font=MONO, font_size=22, color=YELLOW_B).move_to(r_hit + UP * 1.0 + LEFT * 0.65)
+        self.play(Create(ri_arc), FadeIn(ri_angle_lbl), run_time=0.6)
+
+        n_hat = np.array([0.0, 1.0, 0.0])
+        d_n = np.dot(d_inc, n_hat) * n_hat
+        d_t = d_inc - d_n
+        comp_origin = r_hit + UP * 0.05
+        arr_normal_comp = Arrow(comp_origin, comp_origin + d_n * 1.6, buff=0, color=RED_B, stroke_width=2.8, max_tip_length_to_length_ratio=0.1)
+        arr_tang_comp = Arrow(comp_origin, comp_origin + d_t * 1.6, buff=0, color=GREEN_B, stroke_width=2.8, max_tip_length_to_length_ratio=0.1)
+        decomp_title = Text("Zerlegung des Einfallsstrahls", font=MONO, font_size=19, color=GREY_A).to_corner(UR, buff=0.55).shift(DOWN * 0.4)
+        rule_lbl = Text(
+            "Bei Reflexion:\nNormalkomponente kehrt sich um\nTangentialkomponente bleibt erhalten",
+            font=MONO, font_size=18, color=GREY_A, line_spacing=1.3,
+        ).to_corner(UR, buff=0.55).shift(DOWN * 1.8)
+        self.play(FadeIn(decomp_title), GrowArrow(arr_tang_comp), GrowArrow(arr_normal_comp), FadeIn(rule_lbl), run_time=1.3)
+
+        d_refl = d_t - d_n
+        ro_end = r_hit + d_refl * 2.8
+        ro_ray = Arrow(r_hit, ro_end, buff=0, color=ORANGE, stroke_width=3.5, max_tip_length_to_length_ratio=0.07)
+        ro_arc = Arc(radius=0.75, start_angle=PI / 2, angle=(PI / 2 - ri_rad), color=ORANGE, stroke_width=2.4).move_arc_center_to(r_hit)
+        ro_angle_lbl = Text("theta_aus", font=MONO, font_size=22, color=ORANGE).move_to(r_hit + UP * 1.0 + RIGHT * 0.7)
+        self.play(GrowArrow(ro_ray), Create(ro_arc), FadeIn(ro_angle_lbl), run_time=1.0)
+
+        refl_formula = Text("theta_ein = theta_aus", font=MONO, font_size=32, color=WHITE).to_corner(UR, buff=0.55).shift(DOWN * 3.5)
+        self.play(FadeIn(refl_formula), run_time=0.7)
+        self.wait(1.5)
+        self.clean_end()
+
+        # ══════════════════════════════════════════════════════════════════
+        # SNELLIUS
+        # ══════════════════════════════════════════════════════════════════
+        snell_title = intro_make_title("Brechungsgesetz nach Snellius")
+        self.add(snell_title)
+        note = None
+        note = self.change_note(note, "Für die geometrische Beschreibung der Brechung verwendet man das Snelliussche Gesetz.")
+
+        s_hit = np.array([0.0, -0.2, 0.0])
+        s_interface = Line(LEFT * 5.8, RIGHT * 5.8, color=GREY_B, stroke_width=2.5).move_to(s_hit).set_opacity(0.75)
+        lbl_m1 = Text("Luft   n1 = 1.00", font=MONO, font_size=19, color=BLUE_B).move_to(UP * 1.7 + LEFT * 3.5)
+        lbl_m2 = Text("Wasser n2 = 1.33", font=MONO, font_size=19, color=TEAL_B).move_to(DOWN * 1.5 + LEFT * 3.5)
+        s_normal = DashedLine(s_hit + DOWN * 2.2, s_hit + UP * 2.4, dash_length=0.13, color=GREY_C, stroke_width=1.6)
+        s_normal_lbl = Text("Normale", font=MONO, font_size=17, color=GREY_C).next_to(s_normal.get_top(), RIGHT, buff=0.12)
+        self.play(Create(s_interface), FadeIn(lbl_m1), FadeIn(lbl_m2), Create(s_normal), FadeIn(s_normal_lbl), run_time=1.0)
+
+        s_inc_deg = 40.0
+        s_inc_rad = np.radians(s_inc_deg)
+        s_d_inc = np.array([np.sin(s_inc_rad), -np.cos(s_inc_rad), 0.0])
+        s_inc_start = s_hit - s_d_inc * 2.6
+        s_inc_ray = Arrow(s_inc_start, s_hit, buff=0, color=YELLOW_B, stroke_width=3.5, max_tip_length_to_length_ratio=0.07)
+        s1_arc = Arc(radius=0.72, start_angle=PI / 2, angle=-s_inc_rad, color=YELLOW_B, stroke_width=2.4).move_arc_center_to(s_hit)
+        s_theta1_lbl = Text("theta1", font=MONO, font_size=22, color=YELLOW_B).move_to(s_hit + UP * 0.95 + RIGHT * 0.52)
+        self.play(GrowArrow(s_inc_ray), Create(s1_arc), FadeIn(s_theta1_lbl), run_time=0.9)
+
+        n1, n2 = 1.0, 1.33
+        sin_t2 = n1 * np.sin(s_inc_rad) / n2
+        s_refr_rad = np.arcsin(sin_t2)
+        s_d_refr = np.array([np.sin(s_refr_rad), -np.cos(s_refr_rad), 0.0])
+        s_refr_end = s_hit + s_d_refr * 2.5
+        s_refr_ray = Arrow(s_hit, s_refr_end, buff=0, color=TEAL_B, stroke_width=3.5, max_tip_length_to_length_ratio=0.07)
+        s2_arc = Arc(radius=0.72, start_angle=-PI / 2, angle=s_refr_rad, color=TEAL_B, stroke_width=2.4).move_arc_center_to(s_hit)
+        s_theta2_lbl = Text("theta2", font=MONO, font_size=22, color=TEAL_B).move_to(s_hit + DOWN * 0.9 + RIGHT * 0.46)
+        self.play(GrowArrow(s_refr_ray), Create(s2_arc), FadeIn(s_theta2_lbl), run_time=0.9)
+
+        snell_formula = Text("n1 * sin(theta1) = n2 * sin(theta2)", font=MONO, font_size=26, color=WHITE).to_corner(UR, buff=0.6).shift(DOWN * 0.6)
+        snell_note = Text(
+            f"n2 > n1  =>  theta2 < theta1\nBeispiel: theta1 = {s_inc_deg:.0f}°  ->  theta2 = {np.degrees(s_refr_rad):.1f}°",
+            font=MONO, font_size=18, color=GREY_A, line_spacing=1.3,
+        ).to_corner(UR, buff=0.6).shift(DOWN * 2.1)
+        self.play(FadeIn(snell_formula), FadeIn(snell_note), run_time=0.9)
+        self.wait(1.7)
+        self.clean_end()
+
+        # ══════════════════════════════════════════════════════════════════
+        # INTRO 6 / ÜBERGANG ZUM TROPFEN
+        # ══════════════════════════════════════════════════════════════════
+        title = intro_make_title("5) Verschiedene Farben => verschiedene Brechung")
+        self.add(title)
+        note = None
+        note = self.change_note(note, "Die Materialantwort hängt von der Frequenz ab. Deshalb ist die Phasenverschiebung für Blau und Rot nicht genau gleich groß.")
+
+        source = Dot(LEFT * 5.4 + UP * 0.8, radius=0.12, color=INTRO_WHITEISH)
+        source_label = Text("weißes Licht", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WHITEISH).next_to(source, UP, buff=0.16)
+        drop = Circle(radius=1.0, color=INTRO_STRUCT, stroke_width=3, fill_color="#1A2533", fill_opacity=0.35).move_to(ORIGIN + RIGHT * 0.2)
+        drop_label = Text("Wassertropfen", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_SECONDARY).next_to(drop, UP, buff=0.16)
+        ray_in = Arrow(source.get_center(), drop.get_left() + UP * 0.1, buff=0, color=INTRO_WHITEISH, stroke_width=5)
+        ray_red = Arrow(drop.get_right() + DOWN * 0.05, RIGHT * 5.5 + DOWN * 0.45, buff=0, color="#FF6B6B", stroke_width=5)
+        ray_blue = Arrow(drop.get_right() + DOWN * 0.05, RIGHT * 5.0 + DOWN * 1.3, buff=0, color="#60A5FA", stroke_width=5)
+        red_label = Text("Rot: kleinere Verzögerung", font=MONO, font_size=INTRO_SMALL_SIZE, color="#FF6B6B").move_to(RIGHT * 3.1 + UP * 1.8)
+        blue_label = Text("Blau: stärkere Verzögerung", font=MONO, font_size=INTRO_SMALL_SIZE, color="#60A5FA").move_to(RIGHT * 3.15 + UP * 1.2)
+
+        self.play(FadeIn(source), FadeIn(source_label), FadeIn(drop), FadeIn(drop_label), GrowArrow(ray_in), run_time=1.0)
+        self.play(GrowArrow(ray_red), GrowArrow(ray_blue), FadeIn(red_label), FadeIn(blue_label), run_time=1.2)
+        note = self.change_note(note, "Blaues Licht wird im Wasser stärker gebrochen als rotes. Im Regentropfen trennt das die Farben auf.")
+        summary = VGroup(
+            Text("Kurzform:", font=MONO, font_size=INTRO_LABEL_SIZE, color=INTRO_ACCENT, weight=BOLD),
+            Text("Lichtfeld treibt Elektronen an", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WHITEISH),
+            Text("Elektronen hinken leicht nach", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WHITEISH),
+            Text("beschleunigte Ladungen senden Felder aus", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WHITEISH),
+            Text("Überlagerung verschiebt die Phase", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WHITEISH),
+            Text("an der Grenzfläche entsteht Brechung", font=MONO, font_size=INTRO_SMALL_SIZE, color=INTRO_WHITEISH),
+        ).arrange(DOWN, aligned_edge=LEFT, buff=0.12)
+        summary.scale(0.92)
+        summary.to_corner(UL, buff=0.65)
+        summary.shift(DOWN * 0.55)
+        bg = RoundedRectangle(width=5.15, height=2.5, corner_radius=0.16, stroke_color=INTRO_STRUCT, stroke_opacity=0.3, fill_color="#141821", fill_opacity=0.88).move_to(summary.get_center())
+        self.play(FadeIn(bg), LaggedStart(*[FadeIn(m, shift=RIGHT * 0.12) for m in summary], lag_ratio=0.12), run_time=1.3)
+        self.wait(1.8)
+        self.clean_end()
+
+        # ══════════════════════════════════════════════════════════════════
+        # WASSERTROPFEN / RAYTRACING
+        # ══════════════════════════════════════════════════════════════════
+        title = intro_make_title("Lichtweg im Tropfen: Brechung, Reflexion, Austritt")
+        self.add(title)
+        note = None
+        note = self.change_note(note, "Jetzt verfolgen wir Strahlen im Tropfen. Ein Strahl wird beim Eintritt gebrochen, innen reflektiert und beim Austritt erneut gebrochen.")
+
+        droplet = build_droplet()
+        self.add(droplet)
+        DEMO_WAVELENGTH = 540.0
+        wavelength = ValueTracker(DEMO_WAVELENGTH)
+        y_offset = ValueTracker(0.95)
+        beam = always_redraw(lambda: build_beam_group(wavelength.get_value(), y_offset.get_value()))
+        beam.set_z_index(6)
+        wavelength_caption = Text(f"λ = {int(DEMO_WAVELENGTH)} nm", font=MONO, font_size=26, color=WHITE).to_corner(UL, buff=0.55).set_z_index(8)
+        self.play(FadeIn(beam), FadeIn(wavelength_caption), run_time=1.2)
+
+        angle_marker = always_redraw(lambda: build_angle_marker(wavelength.get_value(), y_offset.get_value()))
+        self.add(angle_marker)
+
+        for color_name, wavelength_nm in SELECTED_COLORS:
+            angle_readout = always_redraw(
+                lambda w=wavelength_nm: Text(
+                    f"{(trace_ray_bundle(w, y_offset.get_value())['primary']['angle_deg']):.2f}°"
+                    if trace_ray_bundle(w, y_offset.get_value())["primary"] is not None else "—",
+                    font=MONO, font_size=28, color=WHITE,
+                ).to_corner(UR, buff=0.55).set_z_index(8)
+            )
+            color_label = Text(f"{color_name}  λ = {int(wavelength_nm)} nm", font=MONO, font_size=24, color=WHITE).to_corner(UL, buff=0.55).shift(DOWN * 0.55)
+            self.play(wavelength.animate.set_value(wavelength_nm), y_offset.animate.set_value(0.05), FadeIn(angle_readout), FadeIn(color_label), run_time=1.0)
+            self.play(y_offset.animate.set_value(Y_MAX), run_time=5.5, rate_func=linear)
+            self.wait(0.3)
+            self.play(FadeOut(angle_readout), FadeOut(color_label), run_time=0.4)
+
+        note = self.change_note(note, "Je nach Einfallshöhe und Wellenlänge verlassen die Strahlen den Tropfen unter leicht unterschiedlichen Winkeln. Genau daraus entsteht die Farbtrennung des Regenbogens.")
+        self.play(FadeOut(beam), FadeOut(wavelength_caption), FadeOut(angle_marker), FadeOut(droplet), run_time=0.9)
+        self.wait(0.2)
+
+        # ══════════════════════════════════════════════════════════════════
+        # EINZELKURVEN
+        # ══════════════════════════════════════════════════════════════════
+        title = intro_make_title("Ablenkwinkel für einzelne Farben")
+        self.add(title)
+        note = None
+        note = self.change_note(note, "Für jede Farbe kann man den Ablenkwinkel als Funktion der Einfallshöhe betrachten.")
+        for color_name, wavelength_nm in SELECTED_COLORS:
+            accent = wavelength_to_rgb(wavelength_nm)
+            graph = build_final_graph(color_name, wavelength_nm, accent)
+            graph.center()
+            self.play(FadeIn(graph), run_time=0.9)
+            self.wait(2.2)
+            self.play(FadeOut(graph), run_time=0.7)
+        self.clean_end()
+
+        # ══════════════════════════════════════════════════════════════════
+        # VERGLEICHSGRAPH + SCHLUSS
+        # ══════════════════════════════════════════════════════════════════
+        title = intro_make_title("Dispersionsvergleich und Fazit")
+        self.add(title)
+        note = None
+        note = self.change_note(note, "Im direkten Vergleich sieht man: Die Kurven der Farben liegen nicht exakt übereinander. Dadurch erscheint der Regenbogen farbig aufgespalten.")
+
+        all_samples = []
+        for color_name, wavelength_nm in SELECTED_COLORS:
+            all_samples.append((color_name, wavelength_nm, compute_angle_curve(wavelength_nm)))
+        all_y = [y for _, _, pts in all_samples for _, y in pts]
+        y_min_global = np.floor(min(all_y) - 0.5)
+        y_max_global = np.ceil(max(all_y) + 0.5)
+        y_tick_cmp = round((y_max_global - y_min_global) / 4)
+        if y_tick_cmp < 1:
+            y_tick_cmp = 1
+
+        cmp_axes = Axes(
+            x_range=[0, Y_MAX, round(Y_MAX / 4, 2)],
+            y_range=[y_min_global, y_max_global, y_tick_cmp],
+            x_length=9.5,
+            y_length=5.5,
+            axis_config={
+                "color": GREY_B,
+                "stroke_opacity": 0.7,
+                "stroke_width": 2.0,
+                "include_numbers": False,
+            },
+            tips=False,
+        )
+        cmp_axes.center()
+        cmp_x_label = Text("Einfallshöhe y [m]", font=MONO, font_size=24, color=GREY_A).next_to(cmp_axes, DOWN, buff=0.45)
+        cmp_y_label = Text("Ablenkwinkel [°]", font=MONO, font_size=24, color=GREY_A)
+        cmp_y_label.rotate(PI / 2)
+        cmp_y_label.next_to(cmp_axes, LEFT, buff=0.55)
+        cmp_title = Text("Dispersionsvergleich", font=MONO, font_size=32, color=WHITE).next_to(cmp_axes, UP, buff=0.45)
+
+        legend_items = VGroup()
+        curves = VGroup()
+        for color_name, wavelength_nm, pts in all_samples:
+            accent = wavelength_to_rgb(wavelength_nm)
+            curve_pts = [cmp_axes.c2p(x, y) for x, y in pts]
+            c = VMobject(color=accent)
+            c.set_points_as_corners(curve_pts)
+            c.set_stroke(color=accent, width=5.0)
+            curves.add(c)
+            leg = Text(f"{color_name}  {int(wavelength_nm)} nm", font=MONO, font_size=22, color=accent)
+            legend_items.add(leg)
+        legend_items.arrange(DOWN, aligned_edge=LEFT, buff=0.28)
+        legend_items.next_to(cmp_axes, RIGHT, buff=0.55)
+        cmp_group = VGroup(cmp_axes, cmp_x_label, cmp_y_label, cmp_title, curves, legend_items)
+
+        self.play(FadeIn(cmp_axes), FadeIn(cmp_x_label), FadeIn(cmp_y_label), FadeIn(cmp_title), run_time=0.9)
+        for c in curves:
+            self.play(Create(c), run_time=1.2, rate_func=linear)
+        self.play(FadeIn(legend_items), run_time=0.6)
+        self.wait(2.2)
+        note = self.change_note(note, "Fazit: Der Regenbogen entsteht durch Brechung beim Eintritt, innere Reflexion, erneute Brechung beim Austritt und die wellenlängenabhängige Dispersion des Wassers.")
+        self.wait(1.5)
+        self.clean_end()
