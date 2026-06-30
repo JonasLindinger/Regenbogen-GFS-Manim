@@ -491,10 +491,38 @@ def build_final_graph(color_name: str, wavelength_nm: float, accent_color: Manim
 class WaterDropletDispersion(Scene):
     def construct(self):
         # ══════════════════════════════════════════════════════════════════
-        # SZENE 0: Prism Refraction (Wavefronts)
+        # EINLEITUNG: Lichtmodelle
         # ══════════════════════════════════════════════════════════════════
         
-        # Gigantic equilateral prism (Side 40.0)
+        intro_title = Text("Modelle des Lichts", font=MONO, font_size=42, color=WHITE)
+        intro_title.to_edge(UP, buff=1.0)
+        
+        model_wave = Text("1. Wellenmodell (Wellenfronten)", font=MONO, font_size=28, color=PRISM_AIR_COLOR)
+        model_ray = Text("2. Teilchenmodell (Lichtstrahlen)", font=MONO, font_size=28, color=YELLOW_B)
+        
+        models = VGroup(model_wave, model_ray).arrange(DOWN, aligned_edge=LEFT, buff=1.4)
+        models.next_to(intro_title, DOWN, buff=1.0)
+        
+        expl_wave = Text("Erklärt die Ursache der Brechung\ndurch unterschiedliche Geschwindigkeiten.", 
+                         font=MONO, font_size=18, color=GREY_A, line_spacing=1.2)
+        expl_ray = Text("Ideal für die geometrische Verfolgung\nvon Pfaden und Winkeln (Raytracing).", 
+                        font=MONO, font_size=18, color=GREY_A, line_spacing=1.2)
+        
+        expl_wave.next_to(model_wave, DOWN, aligned_edge=LEFT, buff=0.2).shift(RIGHT * 0.5)
+        expl_ray.next_to(model_ray, DOWN, aligned_edge=LEFT, buff=0.2).shift(RIGHT * 0.5)
+        
+        self.play(Write(intro_title))
+        self.wait(0.5)
+        self.play(FadeIn(model_wave, shift=RIGHT), FadeIn(expl_wave, shift=RIGHT))
+        self.wait(1.5)
+        self.play(FadeIn(model_ray, shift=RIGHT), FadeIn(expl_ray, shift=RIGHT))
+        self.wait(3.0)
+        
+        self.play(FadeOut(intro_title), FadeOut(models), FadeOut(expl_wave), FadeOut(expl_ray))
+        self.wait(0.5)
+
+        # ══════════════════════════════════════════════════════════════════
+        # SZENE 0: Prism Refraction (Wavefronts)
         p1 = np.array([-10.0, -12.0, 0.0])
         p2 = np.array([10.0, 22.64, 0.0])
         p3 = np.array([30.0, -12.0, 0.0])
@@ -571,10 +599,8 @@ class WaterDropletDispersion(Scene):
 
         ri_ray = Arrow(ri_start, r_hit, buff=0, color=YELLOW_B,
                        stroke_width=3.5, max_tip_length_to_length_ratio=0.07)
-        ri_lbl = Text("Einfallsstrahl", font=MONO, font_size=18, color=YELLOW_B)
-        ri_lbl.next_to(ri_start, UP, buff=0.1)
 
-        self.play(GrowArrow(ri_ray), FadeIn(ri_lbl), run_time=0.9)
+        self.play(GrowArrow(ri_ray), run_time=0.9)
         self.wait(0.2)
 
         ri_arc = Arc(radius=0.75, start_angle=PI / 2, angle=-(PI / 2 - ri_rad),
@@ -600,20 +626,12 @@ class WaterDropletDispersion(Scene):
                               buff=0, color=GREEN_B, stroke_width=2.8,
                               max_tip_length_to_length_ratio=0.1)
 
-        lbl_n_comp = Text("Normal-\nkomponente", font=MONO, font_size=16, color=RED_B,
-                          line_spacing=1.1)
-        lbl_n_comp.next_to(comp_origin + d_n * 1.6, RIGHT, buff=0.12)
-
-        lbl_t_comp = Text("Tangential-\nkomponente", font=MONO, font_size=16, color=GREEN_B,
-                          line_spacing=1.1)
-        lbl_t_comp.next_to(comp_origin + d_t * 1.6, DOWN, buff=0.12)
-
         decomp_title = Text("Zerlegung des Einfallsstrahls:", font=MONO, font_size=19, color=GREY_A)
         decomp_title.to_corner(UR, buff=0.55).shift(DOWN * 0.4)
 
         self.play(FadeIn(decomp_title), run_time=0.5)
-        self.play(GrowArrow(arr_tang_comp), FadeIn(lbl_t_comp), run_time=0.7)
-        self.play(GrowArrow(arr_normal_comp), FadeIn(lbl_n_comp), run_time=0.7)
+        self.play(GrowArrow(arr_tang_comp), run_time=0.7)
+        self.play(GrowArrow(arr_normal_comp), run_time=0.7)
         self.wait(0.4)
 
         rule_lbl = Text(
@@ -631,15 +649,13 @@ class WaterDropletDispersion(Scene):
 
         ro_ray = Arrow(r_hit, ro_end, buff=0, color=ORANGE,
                        stroke_width=3.5, max_tip_length_to_length_ratio=0.07)
-        ro_lbl = Text("Reflektierter Strahl", font=MONO, font_size=18, color=ORANGE)
-        ro_lbl.next_to(ro_end, UP, buff=0.1)
 
         ro_arc = Arc(radius=0.75, start_angle=PI / 2, angle=(PI / 2 - ri_rad),
                      color=ORANGE, stroke_width=2.4).move_arc_center_to(r_hit)
         ro_angle_lbl = MathTex(r"\theta_{\mathrm{aus}}", font_size=28, color=ORANGE)
         ro_angle_lbl.move_to(r_hit + UP * 1.0 + RIGHT * 0.6)
 
-        self.play(GrowArrow(ro_ray), FadeIn(ro_lbl), run_time=0.9)
+        self.play(GrowArrow(ro_ray), run_time=0.9)
         self.play(Create(ro_arc), Write(ro_angle_lbl), run_time=0.7)
         self.wait(0.3)
 
@@ -656,10 +672,10 @@ class WaterDropletDispersion(Scene):
 
         refl_scene = VGroup(
             refl_title, mirror, r_normal, r_normal_lbl,
-            ri_ray, ri_lbl, ri_arc, ri_angle_lbl,
+            ri_ray, ri_arc, ri_angle_lbl,
             arr_inc_full, arr_normal_comp, arr_tang_comp,
-            lbl_n_comp, lbl_t_comp, decomp_title, rule_lbl,
-            ro_ray, ro_lbl, ro_arc, ro_angle_lbl,
+            decomp_title, rule_lbl,
+            ro_ray, ro_arc, ro_angle_lbl,
             refl_formula,
         )
         self.play(FadeOut(refl_scene), run_time=0.8)
@@ -698,15 +714,13 @@ class WaterDropletDispersion(Scene):
 
         s_inc_ray = Arrow(s_inc_start, s_hit, buff=0, color=YELLOW_B,
                           stroke_width=3.5, max_tip_length_to_length_ratio=0.07)
-        s_inc_lbl = Text("Einfallsstrahl", font=MONO, font_size=18, color=YELLOW_B)
-        s_inc_lbl.next_to(s_inc_start, UP + LEFT * 0.2, buff=0.1)
 
         s1_arc = Arc(radius=0.72, start_angle=PI / 2, angle=-s_inc_rad,
                      color=YELLOW_B, stroke_width=2.4).move_arc_center_to(s_hit)
         s_theta1_lbl = MathTex(r"\theta_1", font_size=28, color=YELLOW_B)
         s_theta1_lbl.move_to(s_hit + UP * 0.95 + RIGHT * 0.52)
 
-        self.play(GrowArrow(s_inc_ray), FadeIn(s_inc_lbl), run_time=0.8)
+        self.play(GrowArrow(s_inc_ray), run_time=0.8)
         self.play(Create(s1_arc), Write(s_theta1_lbl), run_time=0.6)
         self.wait(0.2)
 
@@ -718,15 +732,13 @@ class WaterDropletDispersion(Scene):
 
         s_refr_ray = Arrow(s_hit, s_refr_end, buff=0, color=TEAL_B,
                            stroke_width=3.5, max_tip_length_to_length_ratio=0.07)
-        s_refr_lbl = Text("Gebrochener Strahl", font=MONO, font_size=18, color=TEAL_B)
-        s_refr_lbl.next_to(s_refr_end, DOWN + RIGHT * 0.1, buff=0.1)
 
         s2_arc = Arc(radius=0.72, start_angle=-PI / 2, angle=s_refr_rad,
                      color=TEAL_B, stroke_width=2.4).move_arc_center_to(s_hit)
         s_theta2_lbl = MathTex(r"\theta_2", font_size=28, color=TEAL_B)
         s_theta2_lbl.move_to(s_hit + DOWN * 0.9 + RIGHT * 0.46)
 
-        self.play(GrowArrow(s_refr_ray), FadeIn(s_refr_lbl), run_time=0.8)
+        self.play(GrowArrow(s_refr_ray), run_time=0.8)
         self.play(Create(s2_arc), Write(s_theta2_lbl), run_time=0.6)
         self.wait(0.3)
 
@@ -748,8 +760,8 @@ class WaterDropletDispersion(Scene):
         snell_scene = VGroup(
             snell_title, s_interface, lbl_m1, lbl_m2,
             s_normal, s_normal_lbl,
-            s_inc_ray, s_inc_lbl, s1_arc, s_theta1_lbl,
-            s_refr_ray, s_refr_lbl, s2_arc, s_theta2_lbl,
+            s_inc_ray, s1_arc, s_theta1_lbl,
+            s_refr_ray, s2_arc, s_theta2_lbl,
             snell_formula, snell_note,
         )
         self.play(FadeOut(snell_scene), run_time=0.8)

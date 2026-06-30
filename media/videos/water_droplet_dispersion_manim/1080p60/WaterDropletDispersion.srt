@@ -1,8 +1,8 @@
 1
-00:00:02,000 --> 00:00:06,000
+00:00:12,500 --> 00:00:16,500
 Wavefronts move at c in air until one side reaches the glass first.
 
 2
-00:00:06,500 --> 00:00:12,500
+00:00:17,000 --> 00:00:23,000
 Inside the glass, that side moves more slowly, so the front rotates and the ray refracts.
 
