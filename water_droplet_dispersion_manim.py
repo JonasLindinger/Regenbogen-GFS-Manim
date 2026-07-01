@@ -960,7 +960,7 @@ class WaterDropletDispersion(Scene):
         )
         ri_arc.set_stroke(width=2.4)
         ri_angle_lbl = MathTex(r"\theta_{\mathrm{ein}}", font_size=28, color=YELLOW_B)
-        ri_angle_lbl.move_to(r_hit + 0.9 * np.array([0.45, 0.78, 0.0]))
+        ri_angle_lbl.move_to(r_hit + 1.12 * np.array([0.48, 0.82, 0.0]))
         self.play(Create(ri_arc), Write(ri_angle_lbl), run_time=0.7)
         self.wait(0.3)
 
@@ -1001,7 +1001,7 @@ class WaterDropletDispersion(Scene):
         )
         ro_arc.set_stroke(width=2.4)
         ro_angle_lbl = MathTex(r"\theta_{\mathrm{aus}}", font_size=28, color=ORANGE)
-        ro_angle_lbl.move_to(r_hit + 0.9 * np.array([-0.45, 0.78, 0.0]))
+        ro_angle_lbl.move_to(r_hit + 1.12 * np.array([-0.48, 0.82, 0.0]))
 
         self.play(GrowArrow(ro_ray), run_time=0.9)
         self.play(Create(ro_arc), Write(ro_angle_lbl), run_time=0.7)
@@ -1062,12 +1062,17 @@ class WaterDropletDispersion(Scene):
         s_inc_ray = Arrow(s_inc_start, s_hit, buff=0, color=YELLOW_B,
                           stroke_width=3.5, max_tip_length_to_length_ratio=0.07)
 
-        helper_s_normal_up = Line(s_hit, s_hit + UP * 1.5, stroke_opacity=0)
-        helper_s_inc = Line(s_hit, s_inc_start, stroke_opacity=0)
-        s1_arc = Angle(helper_s_normal_up, helper_s_inc, radius=0.5, color=YELLOW_B)
+        s_inc_angle = np.arctan2((s_inc_start - s_hit)[1], (s_inc_start - s_hit)[0])
+        s1_arc = Arc(
+            radius=0.5,
+            start_angle=PI / 2,
+            angle=s_inc_angle - (PI / 2),
+            color=YELLOW_B,
+            arc_center=s_hit,
+        )
         s1_arc.set_stroke(width=2.4)
         s_theta1_lbl = MathTex(r"\theta_1", font_size=28, color=YELLOW_B)
-        s_theta1_lbl.move_to(s1_arc.point_from_proportion(0.5) + RIGHT * 0.35 + UP * 0.1)
+        s_theta1_lbl.move_to(s_hit + 1.12 * np.array([-0.48, 0.82, 0.0]))
 
         self.play(GrowArrow(s_inc_ray), run_time=0.8)
         self.play(Create(s1_arc), Write(s_theta1_lbl), run_time=0.6)
@@ -1082,12 +1087,17 @@ class WaterDropletDispersion(Scene):
         s_refr_ray = Arrow(s_hit, s_refr_end, buff=0, color=TEAL_B,
                            stroke_width=3.5, max_tip_length_to_length_ratio=0.07)
 
-        helper_s_normal_down = Line(s_hit, s_hit + DOWN * 1.5, stroke_opacity=0)
-        helper_s_refr = Line(s_hit, s_refr_end, stroke_opacity=0)
-        s2_arc = Angle(helper_s_normal_down, helper_s_refr, radius=0.5, color=TEAL_B)
+        s_refr_angle = np.arctan2((s_refr_end - s_hit)[1], (s_refr_end - s_hit)[0])
+        s2_arc = Arc(
+            radius=0.5,
+            start_angle=-PI / 2,
+            angle=s_refr_angle + (PI / 2),
+            color=TEAL_B,
+            arc_center=s_hit,
+        )
         s2_arc.set_stroke(width=2.4)
         s_theta2_lbl = MathTex(r"\theta_2", font_size=28, color=TEAL_B)
-        s_theta2_lbl.move_to(s2_arc.point_from_proportion(0.5) + RIGHT * 0.34 + DOWN * 0.12)
+        s_theta2_lbl.move_to(s_hit + 1.05 * np.array([0.72, -0.08, 0.0]))
 
         self.play(GrowArrow(s_refr_ray), run_time=0.8)
         self.play(Create(s2_arc), Write(s_theta2_lbl), run_time=0.6)
@@ -1314,7 +1324,7 @@ class RainbowPresentation(IntroBaseScene):
         )
         ri_arc.set_stroke(width=2.4)
         ri_angle_lbl = MathTex(r"\theta_{\mathrm{ein}}", font_size=28, color=YELLOW_B)
-        ri_angle_lbl.move_to(r_hit + 0.9 * np.array([0.45, 0.78, 0.0]))
+        ri_angle_lbl.move_to(r_hit + 1.12 * np.array([0.48, 0.82, 0.0]))
         self.play(Create(ri_arc), Write(ri_angle_lbl), run_time=0.6)
 
         n_hat = np.array([0.0, 1.0, 0.0])
@@ -1334,7 +1344,7 @@ class RainbowPresentation(IntroBaseScene):
         )
         ro_arc.set_stroke(width=2.4)
         ro_angle_lbl = MathTex(r"\theta_{\mathrm{aus}}", font_size=28, color=ORANGE)
-        ro_angle_lbl.move_to(r_hit + 0.9 * np.array([-0.45, 0.78, 0.0]))
+        ro_angle_lbl.move_to(r_hit + 1.12 * np.array([-0.48, 0.82, 0.0]))
         self.play(GrowArrow(ro_ray), Create(ro_arc), Write(ro_angle_lbl), run_time=1.0)
 
         refl_formula = MathTex(r"\theta_{\mathrm{ein}} = \theta_{\mathrm{aus}}", font_size=38, color=WHITE).to_corner(UR, buff=0.55).shift(DOWN * 3.5)
@@ -1363,12 +1373,17 @@ class RainbowPresentation(IntroBaseScene):
         s_d_inc = np.array([np.sin(s_inc_rad), -np.cos(s_inc_rad), 0.0])
         s_inc_start = s_hit - s_d_inc * 2.6
         s_inc_ray = Arrow(s_inc_start, s_hit, buff=0, color=YELLOW_B, stroke_width=3.5, max_tip_length_to_length_ratio=0.07)
-        helper_s_normal_up = Line(s_hit, s_hit + UP * 1.5, stroke_opacity=0)
-        helper_s_inc = Line(s_hit, s_inc_start, stroke_opacity=0)
-        s1_arc = Angle(helper_s_normal_up, helper_s_inc, radius=0.5, quadrant=(1, 1), color=YELLOW_B)
+        s_inc_angle = np.arctan2((s_inc_start - s_hit)[1], (s_inc_start - s_hit)[0])
+        s1_arc = Arc(
+            radius=0.5,
+            start_angle=PI / 2,
+            angle=s_inc_angle - (PI / 2),
+            color=YELLOW_B,
+            arc_center=s_hit,
+        )
         s1_arc.set_stroke(width=2.4)
         s_theta1_lbl = MathTex(r"\theta_1", font_size=28, color=YELLOW_B)
-        s_theta1_lbl.move_to(s1_arc.point_from_proportion(0.5) + RIGHT * 0.35 + UP * 0.1)
+        s_theta1_lbl.move_to(s_hit + 1.12 * np.array([-0.48, 0.82, 0.0]))
         self.play(GrowArrow(s_inc_ray), Create(s1_arc), Write(s_theta1_lbl), run_time=0.9)
 
         n1, n2 = 1.0, 1.33
@@ -1377,12 +1392,17 @@ class RainbowPresentation(IntroBaseScene):
         s_d_refr = np.array([np.sin(s_refr_rad), -np.cos(s_refr_rad), 0.0])
         s_refr_end = s_hit + s_d_refr * 2.5
         s_refr_ray = Arrow(s_hit, s_refr_end, buff=0, color=TEAL_B, stroke_width=3.5, max_tip_length_to_length_ratio=0.07)
-        helper_s_normal_down = Line(s_hit, s_hit + DOWN * 1.5, stroke_opacity=0)
-        helper_s_refr = Line(s_hit, s_refr_end, stroke_opacity=0)
-        s2_arc = Angle(helper_s_normal_down, helper_s_refr, radius=0.5, quadrant=(1, -1), color=TEAL_B)
+        s_refr_angle = np.arctan2((s_refr_end - s_hit)[1], (s_refr_end - s_hit)[0])
+        s2_arc = Arc(
+            radius=0.5,
+            start_angle=-PI / 2,
+            angle=s_refr_angle + (PI / 2),
+            color=TEAL_B,
+            arc_center=s_hit,
+        )
         s2_arc.set_stroke(width=2.4)
         s_theta2_lbl = MathTex(r"\theta_2", font_size=28, color=TEAL_B)
-        s_theta2_lbl.move_to(s2_arc.point_from_proportion(0.5) + RIGHT * 0.34 + DOWN * 0.12)
+        s_theta2_lbl.move_to(s_hit + 1.05 * np.array([0.72, -0.08, 0.0]))
         self.play(GrowArrow(s_refr_ray), Create(s2_arc), Write(s_theta2_lbl), run_time=0.9)
 
         snell_formula = MathTex(r"n_1 \sin(\theta_1) = n_2 \sin(\theta_2)", font_size=38, color=WHITE).to_corner(UR, buff=0.6).shift(DOWN * 0.6)
