@@ -19,7 +19,7 @@ DT_PRISM = 1 / 30
 
 def cross2(a, b):
     return a[0] * b[1] - a[1] * b[0]
-
+  
 def segment_intersection(p, p2, q, q2):
     p = np.array(p[:2], dtype=float)
     p2 = np.array(p2[:2], dtype=float)
@@ -1274,22 +1274,171 @@ class RainbowPresentation(IntroBaseScene):
         # ══════════════════════════════════════════════════════════════════
         # TITEL / ORIENTIERUNG
         # ══════════════════════════════════════════════════════════════════
-        title = Text("Der Regenbogen", font=MONO, font_size=44, color=WHITE)
-        subtitle = Text(
-            "Von der Phasenverschiebung im Material bis zur Farbtrennung im Regentropfen",
-            font=MONO, font_size=20, color=GREY_A,
-        )
-        subtitle.next_to(title, DOWN, buff=0.28)
+        title = Text("Der Regenbogen", font=MONO, font_size=64, color=WHITE, weight=BOLD)
+        title.move_to(UP * 0.55)
+
+        self.play(FadeIn(title, shift=UP * 0.2), run_time=1.0)
+        self.wait(0.4)
+        self.play(title.animate.scale(0.56).to_corner(UL, buff=0.55), run_time=0.9)
+
+        title_accent = Line(ORIGIN, RIGHT * 2.7, color=INTRO_PRIMARY, stroke_width=4)
+        title_accent.next_to(title, DOWN, aligned_edge=LEFT, buff=0.16)
+
         roadmap = VGroup(
             Text("1. Was Brechung mikroskopisch verursacht", font=MONO, font_size=22, color=INTRO_PRIMARY),
-            Text("2. Wie Reflexion und Brechung geometrisch beschrieben werden", font=MONO, font_size=22, color=YELLOW_B),
+            Text("2. Wie Reflexion und Brechung geometrisch beschrieben wird", font=MONO, font_size=22, color=YELLOW_B),
             Text("3. Wie im Wassertropfen der Regenbogen entsteht", font=MONO, font_size=22, color=BLUE_B),
-        ).arrange(DOWN, aligned_edge=LEFT, buff=0.25)
-        roadmap.next_to(subtitle, DOWN, buff=0.7)
+        ).arrange(DOWN, aligned_edge=LEFT, buff=0.32)
+        roadmap.next_to(title_accent, DOWN, aligned_edge=LEFT, buff=0.42)
 
-        self.play(FadeIn(title, shift=UP * 0.2), FadeIn(subtitle), run_time=1.0)
-        self.play(LaggedStart(*[FadeIn(m, shift=RIGHT * 0.12) for m in roadmap], lag_ratio=0.12), run_time=1.2)
+        self.play(Create(title_accent), run_time=0.5)
+        self.play(LaggedStart(*[FadeIn(m, shift=DOWN * 0.12) for m in roadmap], lag_ratio=0.18), run_time=1.6)
         self.wait(2.0)
+        self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
+        self.wait(0.2)
+
+        # ══════════════════════════════════════════════════════════════════
+        # REFLEXION IM TROPFEN
+        # ══════════════════════════════════════════════════════════════════
+        refl_title = intro_make_title("Reflexion: Warum der Strahl im Tropfen umgelenkt wird")
+        self.add(refl_title)
+        note = None
+        note = self.change_note(note, "Im Regentropfen reicht eine Brechung allein nicht aus. Der Strahl wird zusätzlich an der Rückseite reflektiert.")
+
+        r_hit = np.array([0.0, -0.4, 0.0])
+        mirror = Line(LEFT * 5.8, RIGHT * 5.8, color=GREY_B, stroke_width=2.5).move_to(r_hit)
+        mirror.set_opacity(0.75)
+        r_normal = DashedLine(r_hit + DOWN * 0.3, r_hit + UP * 3.0, dash_length=0.13, color=GREY_C, stroke_width=1.6)
+        r_normal_lbl = Text("Normale", font=MONO, font_size=17, color=GREY_C).next_to(r_normal.get_top(), RIGHT, buff=0.12)
+        self.play(Create(mirror), Create(r_normal), FadeIn(r_normal_lbl), run_time=0.9)
+
+        ri_deg = 40.0
+        ri_rad = np.radians(ri_deg)
+        d_inc = np.array([-np.sin(ri_rad), -np.cos(ri_rad), 0.0])
+        ri_start = r_hit - d_inc * 2.8
+        ri_ray = Arrow(ri_start, r_hit, buff=0, color=YELLOW_B, stroke_width=3.5, max_tip_length_to_length_ratio=0.07)
+        self.play(GrowArrow(ri_ray), run_time=0.8)
+
+        ri_arc = Arc(radius=0.75, start_angle=PI / 2, angle=-(PI / 2 - ri_rad), color=YELLOW_B, stroke_width=2.4).move_arc_center_to(r_hit)
+        ri_angle_lbl = Text("theta_ein", font=MONO, font_size=22, color=YELLOW_B).move_to(r_hit + UP * 1.0 + LEFT * 0.65)
+        self.play(Create(ri_arc), FadeIn(ri_angle_lbl), run_time=0.6)
+
+        n_hat = np.array([0.0, 1.0, 0.0])
+        d_n = np.dot(d_inc, n_hat) * n_hat
+        d_t = d_inc - d_n
+        comp_origin = r_hit + UP * 0.05
+        arr_normal_comp = Arrow(comp_origin, comp_origin + d_n * 1.6, buff=0, color=RED_B, stroke_width=2.8, max_tip_length_to_length_ratio=0.1)
+        arr_tang_comp = Arrow(comp_origin, comp_origin + d_t * 1.6, buff=0, color=GREEN_B, stroke_width=2.8, max_tip_length_to_length_ratio=0.1)
+        decomp_title = Text("Zerlegung des Einfallsstrahls", font=MONO, font_size=19, color=GREY_A).to_corner(UR, buff=0.55).shift(DOWN * 0.4)
+        rule_lbl = Text(
+            "Bei Reflexion:\nNormalkomponente kehrt sich um\nTangentialkomponente bleibt erhalten",
+            font=MONO, font_size=18, color=GREY_A, line_spacing=1.3,
+        ).to_corner(UR, buff=0.55).shift(DOWN * 1.8)
+        self.play(FadeIn(decomp_title), GrowArrow(arr_tang_comp), GrowArrow(arr_normal_comp), FadeIn(rule_lbl), run_time=1.3)
+
+        d_refl = d_t - d_n
+        ro_end = r_hit + d_refl * 2.8
+        ro_ray = Arrow(r_hit, ro_end, buff=0, color=ORANGE, stroke_width=3.5, max_tip_length_to_length_ratio=0.07)
+        ro_arc = Arc(radius=0.75, start_angle=PI / 2, angle=(PI / 2 - ri_rad), color=ORANGE, stroke_width=2.4).move_arc_center_to(r_hit)
+        ro_angle_lbl = Text("theta_aus", font=MONO, font_size=22, color=ORANGE).move_to(r_hit + UP * 1.0 + RIGHT * 0.7)
+        self.play(GrowArrow(ro_ray), Create(ro_arc), FadeIn(ro_angle_lbl), run_time=1.0)
+
+        refl_formula = Text("theta_ein = theta_aus", font=MONO, font_size=32, color=WHITE).to_corner(UR, buff=0.55).shift(DOWN * 3.5)
+        self.play(FadeIn(refl_formula), run_time=0.7)
+        self.wait(1.5)
+        self.clean_end()
+
+        # ══════════════════════════════════════════════════════════════════
+        # SNELLIUS
+        # ══════════════════════════════════════════════════════════════════
+        snell_title = intro_make_title("Brechungsgesetz nach Snellius")
+        self.add(snell_title)
+        note = None
+        note = self.change_note(note, "Für die geometrische Beschreibung der Brechung verwendet man das Snelliussche Gesetz.")
+
+        s_hit = np.array([0.0, -0.2, 0.0])
+        s_interface = Line(LEFT * 5.8, RIGHT * 5.8, color=GREY_B, stroke_width=2.5).move_to(s_hit).set_opacity(0.75)
+        lbl_m1 = Text("Luft   n1 = 1.00", font=MONO, font_size=19, color=BLUE_B).move_to(UP * 1.7 + LEFT * 3.5)
+        lbl_m2 = Text("Wasser n2 = 1.33", font=MONO, font_size=19, color=TEAL_B).move_to(DOWN * 1.5 + LEFT * 3.5)
+        s_normal = DashedLine(s_hit + DOWN * 2.2, s_hit + UP * 2.4, dash_length=0.13, color=GREY_C, stroke_width=1.6)
+        s_normal_lbl = Text("Normale", font=MONO, font_size=17, color=GREY_C).next_to(s_normal.get_top(), RIGHT, buff=0.12)
+        self.play(Create(s_interface), FadeIn(lbl_m1), FadeIn(lbl_m2), Create(s_normal), FadeIn(s_normal_lbl), run_time=1.0)
+
+        s_inc_deg = 40.0
+        s_inc_rad = np.radians(s_inc_deg)
+        s_d_inc = np.array([np.sin(s_inc_rad), -np.cos(s_inc_rad), 0.0])
+        s_inc_start = s_hit - s_d_inc * 2.6
+        s_inc_ray = Arrow(s_inc_start, s_hit, buff=0, color=YELLOW_B, stroke_width=3.5, max_tip_length_to_length_ratio=0.07)
+        s1_arc = Arc(radius=0.72, start_angle=PI / 2, angle=-s_inc_rad, color=YELLOW_B, stroke_width=2.4).move_arc_center_to(s_hit)
+        s_theta1_lbl = Text("theta1", font=MONO, font_size=22, color=YELLOW_B).move_to(s_hit + UP * 0.95 + RIGHT * 0.52)
+        self.play(GrowArrow(s_inc_ray), Create(s1_arc), FadeIn(s_theta1_lbl), run_time=0.9)
+
+        n1, n2 = 1.0, 1.33
+        sin_t2 = n1 * np.sin(s_inc_rad) / n2
+        s_refr_rad = np.arcsin(sin_t2)
+        s_d_refr = np.array([np.sin(s_refr_rad), -np.cos(s_refr_rad), 0.0])
+        s_refr_end = s_hit + s_d_refr * 2.5
+        s_refr_ray = Arrow(s_hit, s_refr_end, buff=0, color=TEAL_B, stroke_width=3.5, max_tip_length_to_length_ratio=0.07)
+        s2_arc = Arc(radius=0.72, start_angle=-PI / 2, angle=s_refr_rad, color=TEAL_B, stroke_width=2.4).move_arc_center_to(s_hit)
+        s_theta2_lbl = Text("theta2", font=MONO, font_size=22, color=TEAL_B).move_to(s_hit + DOWN * 0.9 + RIGHT * 0.46)
+        self.play(GrowArrow(s_refr_ray), Create(s2_arc), FadeIn(s_theta2_lbl), run_time=0.9)
+
+        snell_formula = Text("n1 * sin(theta1) = n2 * sin(theta2)", font=MONO, font_size=26, color=WHITE).to_corner(UR, buff=0.6).shift(DOWN * 0.6)
+        snell_note = Text(
+            f"n2 > n1  =>  theta2 < theta1\nBeispiel: theta1 = {s_inc_deg:.0f}°  ->  theta2 = {np.degrees(s_refr_rad):.1f}°",
+            font=MONO, font_size=18, color=GREY_A, line_spacing=1.3,
+        ).to_corner(UR, buff=0.6).shift(DOWN * 2.1)
+        self.play(FadeIn(snell_formula), FadeIn(snell_note), run_time=0.9)
+        self.wait(1.7)
+        self.clean_end()
+
+        # ══════════════════════════════════════════════════════════════════
+        # c, LICHTGESCHWINDIGKEIT IN WASSER, BRECHUNGSINDEX
+        # ══════════════════════════════════════════════════════════════════
+        basics_title = Text("Grundbegriffe: c, Geschwindigkeit und n", font=MONO, font_size=40, color=WHITE)
+        basics_title.to_edge(UP, buff=0.85)
+
+        left_panel = RoundedRectangle(width=5.3, height=4.3, corner_radius=0.16, stroke_color=INTRO_STRUCT, stroke_opacity=0.4)
+        right_panel = left_panel.copy()
+        left_panel.shift(LEFT * 3.35 + DOWN * 0.2)
+        right_panel.shift(RIGHT * 3.35 + DOWN * 0.2)
+
+        c_head = Text("Im Vakuum", font=MONO, font_size=24, color=INTRO_PRIMARY)
+        c_head.next_to(left_panel, UP, buff=0.16)
+        c_lines = VGroup(
+            Text("c = Lichtgeschwindigkeit im Vakuum", font=MONO, font_size=18, color=INTRO_WHITEISH),
+            Text("c = 299 792 458 m/s", font=MONO, font_size=24, color=INTRO_PRIMARY),
+            Text("Das ist der Referenzwert.", font=MONO, font_size=18, color=GREY_A),
+            Text("Alle Brechungsindizes vergleichen", font=MONO, font_size=18, color=GREY_A),
+            Text("ein Material mit genau diesem Wert.", font=MONO, font_size=18, color=GREY_A),
+        ).arrange(DOWN, aligned_edge=LEFT, buff=0.16)
+        c_lines.move_to(left_panel.get_center())
+
+        n_head = Text("In Wasser", font=MONO, font_size=24, color=TEAL_B)
+        n_head.next_to(right_panel, UP, buff=0.16)
+        water_lines = VGroup(
+            Text("sichtbares Licht: n ≈ 1.333", font=MONO, font_size=22, color=TEAL_B),
+            Text("n = c / v", font=MONO, font_size=28, color=YELLOW_B),
+            Text("also: v = c / n", font=MONO, font_size=24, color=YELLOW_B),
+            Text("v ≈ 2.25 · 10^8 m/s", font=MONO, font_size=24, color=INTRO_ACCENT),
+            Text("das sind ≈ 0.75c", font=MONO, font_size=24, color=INTRO_ACCENT),
+        ).arrange(DOWN, aligned_edge=LEFT, buff=0.18)
+        water_lines.move_to(right_panel.get_center())
+
+        bottom_note = Text(
+            "Wichtig: In Wasser ist Licht also nicht bei 0.67c, sondern näher an 0.75c.",
+            font=MONO, font_size=18, color=GREY_A,
+        )
+        bottom_note.to_edge(DOWN, buff=0.8)
+
+        note = None
+        note = self.change_note(note, "c ist die Lichtgeschwindigkeit im Vakuum. Der Brechungsindex wird über n = c / v definiert.")
+        self.play(Write(basics_title), run_time=0.9)
+        self.play(FadeIn(left_panel), FadeIn(c_head), FadeIn(c_lines, shift=RIGHT * 0.12), run_time=1.0)
+        self.play(FadeIn(right_panel), FadeIn(n_head), FadeIn(water_lines, shift=RIGHT * 0.12), run_time=1.0)
+        note = self.change_note(note, "Für Wasser mit n ungefähr 1.333 folgt v = c / n. Das ergibt rund 2.25 mal 10 hoch 8 Meter pro Sekunde, also etwa 0.75c.")
+        self.play(FadeIn(bottom_note), run_time=0.8)
+        self.wait(2.4)
         self.play(FadeOut(Group(*self.mobjects)), run_time=0.7)
         self.wait(0.2)
 
@@ -1580,101 +1729,6 @@ class RainbowPresentation(IntroBaseScene):
         self.wait(6.5)
         note = self.change_note(note, "Im dichteren Medium läuft die Wellenfront langsamer weiter. Dadurch kippt die Front und der Lichtstrahl wird gebrochen.")
         self.wait(4.0)
-        self.clean_end()
-
-        # ══════════════════════════════════════════════════════════════════
-        # REFLEXION IM TROPFEN
-        # ══════════════════════════════════════════════════════════════════
-        refl_title = intro_make_title("Reflexion: Warum der Strahl im Tropfen umgelenkt wird")
-        self.add(refl_title)
-        note = None
-        note = self.change_note(note, "Im Regentropfen reicht eine Brechung allein nicht aus. Der Strahl wird zusätzlich an der Rückseite reflektiert.")
-
-        r_hit = np.array([0.0, -0.4, 0.0])
-        mirror = Line(LEFT * 5.8, RIGHT * 5.8, color=GREY_B, stroke_width=2.5).move_to(r_hit)
-        mirror.set_opacity(0.75)
-        r_normal = DashedLine(r_hit + DOWN * 0.3, r_hit + UP * 3.0, dash_length=0.13, color=GREY_C, stroke_width=1.6)
-        r_normal_lbl = Text("Normale", font=MONO, font_size=17, color=GREY_C).next_to(r_normal.get_top(), RIGHT, buff=0.12)
-        self.play(Create(mirror), Create(r_normal), FadeIn(r_normal_lbl), run_time=0.9)
-
-        ri_deg = 40.0
-        ri_rad = np.radians(ri_deg)
-        d_inc = np.array([-np.sin(ri_rad), -np.cos(ri_rad), 0.0])
-        ri_start = r_hit - d_inc * 2.8
-        ri_ray = Arrow(ri_start, r_hit, buff=0, color=YELLOW_B, stroke_width=3.5, max_tip_length_to_length_ratio=0.07)
-        self.play(GrowArrow(ri_ray), run_time=0.8)
-
-        ri_arc = Arc(radius=0.75, start_angle=PI / 2, angle=-(PI / 2 - ri_rad), color=YELLOW_B, stroke_width=2.4).move_arc_center_to(r_hit)
-        ri_angle_lbl = Text("theta_ein", font=MONO, font_size=22, color=YELLOW_B).move_to(r_hit + UP * 1.0 + LEFT * 0.65)
-        self.play(Create(ri_arc), FadeIn(ri_angle_lbl), run_time=0.6)
-
-        n_hat = np.array([0.0, 1.0, 0.0])
-        d_n = np.dot(d_inc, n_hat) * n_hat
-        d_t = d_inc - d_n
-        comp_origin = r_hit + UP * 0.05
-        arr_normal_comp = Arrow(comp_origin, comp_origin + d_n * 1.6, buff=0, color=RED_B, stroke_width=2.8, max_tip_length_to_length_ratio=0.1)
-        arr_tang_comp = Arrow(comp_origin, comp_origin + d_t * 1.6, buff=0, color=GREEN_B, stroke_width=2.8, max_tip_length_to_length_ratio=0.1)
-        decomp_title = Text("Zerlegung des Einfallsstrahls", font=MONO, font_size=19, color=GREY_A).to_corner(UR, buff=0.55).shift(DOWN * 0.4)
-        rule_lbl = Text(
-            "Bei Reflexion:\nNormalkomponente kehrt sich um\nTangentialkomponente bleibt erhalten",
-            font=MONO, font_size=18, color=GREY_A, line_spacing=1.3,
-        ).to_corner(UR, buff=0.55).shift(DOWN * 1.8)
-        self.play(FadeIn(decomp_title), GrowArrow(arr_tang_comp), GrowArrow(arr_normal_comp), FadeIn(rule_lbl), run_time=1.3)
-
-        d_refl = d_t - d_n
-        ro_end = r_hit + d_refl * 2.8
-        ro_ray = Arrow(r_hit, ro_end, buff=0, color=ORANGE, stroke_width=3.5, max_tip_length_to_length_ratio=0.07)
-        ro_arc = Arc(radius=0.75, start_angle=PI / 2, angle=(PI / 2 - ri_rad), color=ORANGE, stroke_width=2.4).move_arc_center_to(r_hit)
-        ro_angle_lbl = Text("theta_aus", font=MONO, font_size=22, color=ORANGE).move_to(r_hit + UP * 1.0 + RIGHT * 0.7)
-        self.play(GrowArrow(ro_ray), Create(ro_arc), FadeIn(ro_angle_lbl), run_time=1.0)
-
-        refl_formula = Text("theta_ein = theta_aus", font=MONO, font_size=32, color=WHITE).to_corner(UR, buff=0.55).shift(DOWN * 3.5)
-        self.play(FadeIn(refl_formula), run_time=0.7)
-        self.wait(1.5)
-        self.clean_end()
-
-        # ══════════════════════════════════════════════════════════════════
-        # SNELLIUS
-        # ══════════════════════════════════════════════════════════════════
-        snell_title = intro_make_title("Brechungsgesetz nach Snellius")
-        self.add(snell_title)
-        note = None
-        note = self.change_note(note, "Für die geometrische Beschreibung der Brechung verwendet man das Snelliussche Gesetz.")
-
-        s_hit = np.array([0.0, -0.2, 0.0])
-        s_interface = Line(LEFT * 5.8, RIGHT * 5.8, color=GREY_B, stroke_width=2.5).move_to(s_hit).set_opacity(0.75)
-        lbl_m1 = Text("Luft   n1 = 1.00", font=MONO, font_size=19, color=BLUE_B).move_to(UP * 1.7 + LEFT * 3.5)
-        lbl_m2 = Text("Wasser n2 = 1.33", font=MONO, font_size=19, color=TEAL_B).move_to(DOWN * 1.5 + LEFT * 3.5)
-        s_normal = DashedLine(s_hit + DOWN * 2.2, s_hit + UP * 2.4, dash_length=0.13, color=GREY_C, stroke_width=1.6)
-        s_normal_lbl = Text("Normale", font=MONO, font_size=17, color=GREY_C).next_to(s_normal.get_top(), RIGHT, buff=0.12)
-        self.play(Create(s_interface), FadeIn(lbl_m1), FadeIn(lbl_m2), Create(s_normal), FadeIn(s_normal_lbl), run_time=1.0)
-
-        s_inc_deg = 40.0
-        s_inc_rad = np.radians(s_inc_deg)
-        s_d_inc = np.array([np.sin(s_inc_rad), -np.cos(s_inc_rad), 0.0])
-        s_inc_start = s_hit - s_d_inc * 2.6
-        s_inc_ray = Arrow(s_inc_start, s_hit, buff=0, color=YELLOW_B, stroke_width=3.5, max_tip_length_to_length_ratio=0.07)
-        s1_arc = Arc(radius=0.72, start_angle=PI / 2, angle=-s_inc_rad, color=YELLOW_B, stroke_width=2.4).move_arc_center_to(s_hit)
-        s_theta1_lbl = Text("theta1", font=MONO, font_size=22, color=YELLOW_B).move_to(s_hit + UP * 0.95 + RIGHT * 0.52)
-        self.play(GrowArrow(s_inc_ray), Create(s1_arc), FadeIn(s_theta1_lbl), run_time=0.9)
-
-        n1, n2 = 1.0, 1.33
-        sin_t2 = n1 * np.sin(s_inc_rad) / n2
-        s_refr_rad = np.arcsin(sin_t2)
-        s_d_refr = np.array([np.sin(s_refr_rad), -np.cos(s_refr_rad), 0.0])
-        s_refr_end = s_hit + s_d_refr * 2.5
-        s_refr_ray = Arrow(s_hit, s_refr_end, buff=0, color=TEAL_B, stroke_width=3.5, max_tip_length_to_length_ratio=0.07)
-        s2_arc = Arc(radius=0.72, start_angle=-PI / 2, angle=s_refr_rad, color=TEAL_B, stroke_width=2.4).move_arc_center_to(s_hit)
-        s_theta2_lbl = Text("theta2", font=MONO, font_size=22, color=TEAL_B).move_to(s_hit + DOWN * 0.9 + RIGHT * 0.46)
-        self.play(GrowArrow(s_refr_ray), Create(s2_arc), FadeIn(s_theta2_lbl), run_time=0.9)
-
-        snell_formula = Text("n1 * sin(theta1) = n2 * sin(theta2)", font=MONO, font_size=26, color=WHITE).to_corner(UR, buff=0.6).shift(DOWN * 0.6)
-        snell_note = Text(
-            f"n2 > n1  =>  theta2 < theta1\nBeispiel: theta1 = {s_inc_deg:.0f}°  ->  theta2 = {np.degrees(s_refr_rad):.1f}°",
-            font=MONO, font_size=18, color=GREY_A, line_spacing=1.3,
-        ).to_corner(UR, buff=0.6).shift(DOWN * 2.1)
-        self.play(FadeIn(snell_formula), FadeIn(snell_note), run_time=0.9)
-        self.wait(1.7)
         self.clean_end()
 
         # ══════════════════════════════════════════════════════════════════
