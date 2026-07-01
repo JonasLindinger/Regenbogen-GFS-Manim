@@ -950,12 +950,17 @@ class WaterDropletDispersion(Scene):
         self.play(GrowArrow(ri_ray), run_time=0.9)
         self.wait(0.2)
 
-        helper_normal_up = Line(r_hit, r_hit + UP * 1.5, stroke_opacity=0)
-        helper_inc = Line(r_hit, ri_start, stroke_opacity=0)
-        ri_arc = Angle(helper_normal_up, helper_inc, radius=0.52, color=YELLOW_B)
+        inc_angle = np.arctan2((ri_start - r_hit)[1], (ri_start - r_hit)[0])
+        ri_arc = Arc(
+            radius=0.52,
+            start_angle=inc_angle,
+            angle=(PI / 2) - inc_angle,
+            color=YELLOW_B,
+            arc_center=r_hit,
+        )
         ri_arc.set_stroke(width=2.4)
         ri_angle_lbl = MathTex(r"\theta_{\mathrm{ein}}", font_size=28, color=YELLOW_B)
-        ri_angle_lbl.move_to(ri_arc.point_from_proportion(0.5) + LEFT * 0.38 + UP * 0.06)
+        ri_angle_lbl.move_to(r_hit + 0.9 * np.array([0.45, 0.78, 0.0]))
         self.play(Create(ri_arc), Write(ri_angle_lbl), run_time=0.7)
         self.wait(0.3)
 
@@ -986,11 +991,17 @@ class WaterDropletDispersion(Scene):
         ro_ray = Arrow(r_hit, ro_end, buff=0, color=ORANGE,
                        stroke_width=3.5, max_tip_length_to_length_ratio=0.07)
 
-        helper_refl = Line(r_hit, ro_end, stroke_opacity=0)
-        ro_arc = Angle(helper_refl, helper_normal_up, radius=0.52, color=ORANGE)
+        refl_angle = np.arctan2((ro_end - r_hit)[1], (ro_end - r_hit)[0])
+        ro_arc = Arc(
+            radius=0.52,
+            start_angle=PI / 2,
+            angle=refl_angle - (PI / 2),
+            color=ORANGE,
+            arc_center=r_hit,
+        )
         ro_arc.set_stroke(width=2.4)
         ro_angle_lbl = MathTex(r"\theta_{\mathrm{aus}}", font_size=28, color=ORANGE)
-        ro_angle_lbl.move_to(ro_arc.point_from_proportion(0.5) + RIGHT * 0.42 + UP * 0.06)
+        ro_angle_lbl.move_to(r_hit + 0.9 * np.array([-0.45, 0.78, 0.0]))
 
         self.play(GrowArrow(ro_ray), run_time=0.9)
         self.play(Create(ro_arc), Write(ro_angle_lbl), run_time=0.7)
@@ -1293,12 +1304,17 @@ class RainbowPresentation(IntroBaseScene):
         ri_ray = Arrow(ri_start, r_hit, buff=0, color=YELLOW_B, stroke_width=3.5, max_tip_length_to_length_ratio=0.07)
         self.play(GrowArrow(ri_ray), run_time=0.8)
 
-        helper_normal_up = Line(r_hit, r_hit + UP * 1.5, stroke_opacity=0)
-        helper_inc = Line(r_hit, ri_start, stroke_opacity=0)
-        ri_arc = Angle(helper_normal_up, helper_inc, radius=0.52, quadrant=(1, 1), color=YELLOW_B)
+        inc_angle = np.arctan2((ri_start - r_hit)[1], (ri_start - r_hit)[0])
+        ri_arc = Arc(
+            radius=0.52,
+            start_angle=inc_angle,
+            angle=(PI / 2) - inc_angle,
+            color=YELLOW_B,
+            arc_center=r_hit,
+        )
         ri_arc.set_stroke(width=2.4)
         ri_angle_lbl = MathTex(r"\theta_{\mathrm{ein}}", font_size=28, color=YELLOW_B)
-        ri_angle_lbl.move_to(ri_arc.point_from_proportion(0.5) + LEFT * 0.38 + UP * 0.06)
+        ri_angle_lbl.move_to(r_hit + 0.9 * np.array([0.45, 0.78, 0.0]))
         self.play(Create(ri_arc), Write(ri_angle_lbl), run_time=0.6)
 
         n_hat = np.array([0.0, 1.0, 0.0])
@@ -1308,11 +1324,17 @@ class RainbowPresentation(IntroBaseScene):
         d_refl = d_t - d_n
         ro_end = r_hit + d_refl * 2.8
         ro_ray = Arrow(r_hit, ro_end, buff=0, color=ORANGE, stroke_width=3.5, max_tip_length_to_length_ratio=0.07)
-        helper_refl = Line(r_hit, ro_end, stroke_opacity=0)
-        ro_arc = Angle(helper_refl, helper_normal_up, radius=0.52, quadrant=(-1, 1), color=ORANGE)
+        refl_angle = np.arctan2((ro_end - r_hit)[1], (ro_end - r_hit)[0])
+        ro_arc = Arc(
+            radius=0.52,
+            start_angle=PI / 2,
+            angle=refl_angle - (PI / 2),
+            color=ORANGE,
+            arc_center=r_hit,
+        )
         ro_arc.set_stroke(width=2.4)
         ro_angle_lbl = MathTex(r"\theta_{\mathrm{aus}}", font_size=28, color=ORANGE)
-        ro_angle_lbl.move_to(ro_arc.point_from_proportion(0.5) + RIGHT * 0.42 + UP * 0.06)
+        ro_angle_lbl.move_to(r_hit + 0.9 * np.array([-0.45, 0.78, 0.0]))
         self.play(GrowArrow(ro_ray), Create(ro_arc), Write(ro_angle_lbl), run_time=1.0)
 
         refl_formula = MathTex(r"\theta_{\mathrm{ein}} = \theta_{\mathrm{aus}}", font_size=38, color=WHITE).to_corner(UR, buff=0.55).shift(DOWN * 3.5)
